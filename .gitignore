@@ -37,3 +37,4 @@ next-env.d.ts
 
 # local mock data
 /data/*.json
+render-env-b.txt
