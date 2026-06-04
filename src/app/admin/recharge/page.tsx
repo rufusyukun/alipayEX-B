@@ -142,7 +142,6 @@ export default function AdminRechargePage() {
   const [loading, setLoading] = useState(false);
   const [queryMessage, setQueryMessage] = useState("");
   const [syncingRecent, setSyncingRecent] = useState(false);
-  const ordersRef = useRef<Order[]>([]);
   const syncingRecentRef = useRef(false);
 
   async function loadData() {
@@ -167,7 +166,6 @@ export default function AdminRechargePage() {
 
     const ordersData = (await ordersResponse.json()) as { orders: Order[] };
     const statsData = (await statsResponse.json()) as Stats;
-    ordersRef.current = ordersData.orders;
     setOrders(ordersData.orders);
     setStats(statsData);
     setAuthenticated(true);
@@ -253,45 +251,36 @@ export default function AdminRechargePage() {
       return;
     }
 
-    const cutoff = Date.now() - 30 * 60 * 1000;
-    const orderSource = source === "auto" ? ordersRef.current : orders;
-    const recentPendingOrders = orderSource
-      .filter(
-        (order) =>
-          order.payment_status === "pending" && new Date(order.created_at).getTime() >= cutoff,
-      )
-      .slice(0, 50);
-
     syncingRecentRef.current = true;
     setSyncingRecent(true);
     if (source === "manual") {
-      setQueryMessage(`开始同步最近待支付订单：${recentPendingOrders.length} 笔`);
+      setQueryMessage("开始同步最近待支付订单");
     }
 
     try {
-      let paidCount = 0;
+      const response = await fetch("/api/admin/recharge/sync-pending", { method: "POST" });
+      const data = (await response.json()) as {
+        candidateCount?: number;
+        syncedCount?: number;
+        error?: string;
+      };
 
-      for (const order of recentPendingOrders) {
-        const response = await fetch(
-          `/api/alipay/query?order_no=${encodeURIComponent(order.order_no)}`,
-        );
-        const data = (await response.json()) as {
-          payment_status?: string;
-          paymentStatus?: string;
-          status?: string;
-          synced?: boolean;
-        };
-        const paymentStatus = data.payment_status || data.paymentStatus || data.status || "";
-
-        if (response.ok && (paymentStatus.toLowerCase() === "paid" || data.synced)) {
-          paidCount += 1;
-        }
+      if (!response.ok) {
+        throw new Error(data.error || "同步最近待支付订单失败");
       }
 
-      if (source === "manual" || paidCount > 0) {
-        setQueryMessage(`同步完成，更新已支付订单 ${paidCount} 笔`);
+      if (source === "manual" || (data.syncedCount || 0) > 0) {
+        setQueryMessage(
+          `同步完成，候选订单 ${data.candidateCount || 0} 笔，更新已支付订单 ${
+            data.syncedCount || 0
+          } 笔`,
+        );
       }
       await loadData();
+    } catch (error) {
+      if (source === "manual") {
+        setQueryMessage(error instanceof Error ? error.message : "同步最近待支付订单失败");
+      }
     } finally {
       syncingRecentRef.current = false;
       setSyncingRecent(false);
