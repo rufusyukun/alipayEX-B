@@ -275,9 +275,15 @@ export default function AdminRechargePage() {
         const response = await fetch(
           `/api/alipay/query?order_no=${encodeURIComponent(order.order_no)}`,
         );
-        const data = (await response.json()) as { payment_status?: string; synced?: boolean };
+        const data = (await response.json()) as {
+          payment_status?: string;
+          paymentStatus?: string;
+          status?: string;
+          synced?: boolean;
+        };
+        const paymentStatus = data.payment_status || data.paymentStatus || data.status || "";
 
-        if (response.ok && (data.payment_status === "paid" || data.synced)) {
+        if (response.ok && (paymentStatus.toLowerCase() === "paid" || data.synced)) {
           paidCount += 1;
         }
       }
@@ -285,9 +291,7 @@ export default function AdminRechargePage() {
       if (source === "manual" || paidCount > 0) {
         setQueryMessage(`同步完成，更新已支付订单 ${paidCount} 笔`);
       }
-      if (source === "manual" || paidCount > 0 || recentPendingOrders.length > 0) {
-        await loadData();
-      }
+      await loadData();
     } finally {
       syncingRecentRef.current = false;
       setSyncingRecent(false);

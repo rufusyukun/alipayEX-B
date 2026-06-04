@@ -32,6 +32,7 @@ export default function PayPage() {
     "idle",
   );
   const [syncMessage, setSyncMessage] = useState("");
+  const [initialStatusChecked, setInitialStatusChecked] = useState(false);
   const pollingActiveRef = useRef(false);
   const pollingTimerRef = useRef<number | null>(null);
   const pollingStartedAtRef = useRef(0);
@@ -42,6 +43,7 @@ export default function PayPage() {
   const phoneParam = searchParams.get("phone");
   const phone = phoneParam || "未填写";
   const paying = alipayState !== "idle";
+  const checkingOrderStatus = !initialStatusChecked && syncState !== "paid";
 
   function buildSuccessUrl() {
     const successParams = new URLSearchParams({ orderNo });
@@ -73,11 +75,14 @@ export default function PayPage() {
       const response = await fetch(`/api/alipay/query?orderNo=${encodeURIComponent(orderNo)}`);
       const data = (await response.json()) as {
         payment_status?: string;
+        paymentStatus?: string;
+        status?: string;
         synced?: boolean;
         error?: string;
       };
+      const paymentStatus = data.payment_status || data.paymentStatus || data.status || "";
 
-      if (response.ok && (data.payment_status === "paid" || data.synced)) {
+      if (response.ok && (paymentStatus.toLowerCase() === "paid" || data.synced)) {
         paidRef.current = true;
         stopPolling();
         setError("");
@@ -96,6 +101,7 @@ export default function PayPage() {
       setSyncState("error");
       setSyncMessage("支付状态查询失败，稍后会继续重试。");
     } finally {
+      setInitialStatusChecked(true);
       queryInFlightRef.current = false;
     }
   }, [orderNo, stopPolling]);
@@ -380,11 +386,13 @@ export default function PayPage() {
         <div className="space-y-3 border-t border-slate-100 bg-white/95 p-4 backdrop-blur">
           <button
             className="flex min-h-[52px] w-full items-center justify-center rounded-2xl bg-blue-600 text-base font-bold text-white transition hover:bg-blue-700 disabled:bg-slate-300"
-            disabled={paying || loadingMock || syncState === "paid"}
+            disabled={checkingOrderStatus || paying || loadingMock || syncState === "paid"}
             onClick={startAlipay}
             type="button"
           >
-            {syncState === "paid"
+            {checkingOrderStatus
+              ? "正在确认订单状态..."
+              : syncState === "paid"
               ? "支付成功"
               : alipayState === "creating"
               ? "正在创建支付链接..."
