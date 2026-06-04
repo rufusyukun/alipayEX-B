@@ -329,9 +329,9 @@ export default function PayPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 px-3 py-4 text-white">
+    <main className="min-h-screen bg-slate-100 px-3 py-4 pb-[132px] text-white">
       <section className="mx-auto flex min-h-[calc(100vh-32px)] w-full max-w-[430px] flex-col overflow-hidden rounded-[28px] bg-[#181818] shadow-xl shadow-black/60">
-        <div className="flex-1 overflow-y-auto px-5 py-5">
+        <div className="flex-1 overflow-y-auto px-5 pb-[132px] pt-5">
           <div className="mb-5 flex items-center justify-between">
             <Link
               className="flex h-9 w-9 items-center justify-center rounded-full bg-[#242424] text-lg text-[#FF9900]"
@@ -450,35 +450,41 @@ export default function PayPage() {
           ) : null}
         </div>
 
-        <div className="space-y-3 border-t border-[#2A2A2A] bg-[#111111]/95 p-4 backdrop-blur">
-          <button
-            className="flex min-h-[52px] w-full items-center justify-center rounded-2xl bg-[#FF9900] text-base font-black text-black transition hover:bg-[#F6A400] disabled:bg-[#2A2A2A] disabled:text-[#6B6B6B]"
-            disabled={orderExpired || checkingOrderStatus || paying || loadingMock || syncState === "paid"}
-            onClick={startAlipay}
-            type="button"
-          >
-            {orderExpired
-              ? "订单已超时"
-              : checkingOrderStatus
-              ? "正在确认订单状态..."
-              : syncState === "paid"
-              ? "支付成功"
-              : alipayState === "creating"
-              ? "正在创建支付链接..."
-              : alipayState === "jumping"
-                ? "正在打开支付宝..."
-                : "跳转支付宝支付"}
-          </button>
-          {isDevelopment ? (
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#2A2A2A] bg-white/95 px-5 pb-[calc(16px+env(safe-area-inset-bottom))] pt-3 shadow-[0_-10px_30px_rgba(0,0,0,0.18)] backdrop-blur">
+          <div className="mx-auto w-full max-w-[430px] space-y-3">
             <button
-              className="flex min-h-[48px] w-full items-center justify-center rounded-2xl border border-[#2A2A2A] bg-[#1F1F1F] text-sm font-bold text-[#A3A3A3] transition hover:bg-[#242424] disabled:bg-[#111111]"
-              disabled={loadingMock || paying}
-              onClick={confirmMockPay}
+              className={`flex min-h-[58px] w-full items-center justify-center rounded-[22px] text-[17px] font-semibold transition ${
+                orderExpired
+                  ? "border border-[#2A2A2A] bg-[#1F1F1F] text-[#FF9900]"
+                  : "bg-[#FF9900] text-black hover:bg-[#F6A400] disabled:bg-[#2A2A2A] disabled:text-[#6B6B6B]"
+              }`}
+              disabled={orderExpired || checkingOrderStatus || paying || loadingMock || syncState === "paid"}
+              onClick={orderExpired ? () => router.push("/recharge") : startAlipay}
               type="button"
             >
-              {loadingMock ? "正在处理 mock 支付" : "开发环境 mock 支付"}
+              {orderExpired
+                ? "返回重新下单"
+                : checkingOrderStatus
+                  ? "正在确认订单状态..."
+                  : syncState === "paid"
+                    ? "支付成功"
+                    : alipayState === "creating"
+                      ? "正在创建支付链接..."
+                      : alipayState === "jumping"
+                        ? "正在打开支付宝..."
+                        : "跳转支付宝支付"}
             </button>
-          ) : null}
+            {isDevelopment ? (
+              <button
+                className="flex min-h-[48px] w-full items-center justify-center rounded-2xl border border-[#2A2A2A] bg-[#1F1F1F] text-sm font-bold text-[#A3A3A3] transition hover:bg-[#242424] disabled:bg-[#111111]"
+                disabled={loadingMock || paying}
+                onClick={confirmMockPay}
+                type="button"
+              >
+                {loadingMock ? "正在处理 mock 支付" : "开发环境 mock 支付"}
+              </button>
+            ) : null}
+          </div>
         </div>
       </section>
     </main>
