@@ -18,6 +18,7 @@ export default function PayPage() {
   const [alipayState, setAlipayState] = useState<"idle" | "creating" | "jumping">("idle");
   const [loadingMock, setLoadingMock] = useState(false);
   const [error, setError] = useState("");
+  const [paymentContent, setPaymentContent] = useState("");
   const orderNo = params.orderNo;
   const amount = searchParams.get("amount");
   const phoneParam = searchParams.get("phone");
@@ -42,6 +43,7 @@ export default function PayPage() {
 
     setAlipayState("creating");
     setError("");
+    setPaymentContent("");
 
     try {
       const response = await fetch("/api/alipay/create", {
@@ -52,16 +54,29 @@ export default function PayPage() {
         body: JSON.stringify({ order_no: orderNo }),
       });
       const data = (await response.json()) as {
-        payment_url?: string;
+        payment_url?: string | null;
+        payment_content?: string | null;
+        payment_content_type?: "url" | "qr" | "content" | null;
         error?: string;
       };
 
-      if (!response.ok || !data.payment_url) {
+      if (!response.ok) {
         throw new Error(data.error || "支付接口未配置，请联系管理员");
       }
 
-      setAlipayState("jumping");
-      window.location.href = data.payment_url;
+      if (data.payment_url) {
+        setAlipayState("jumping");
+        window.location.href = data.payment_url;
+        return;
+      }
+
+      if (data.payment_content) {
+        setPaymentContent(data.payment_content);
+        setAlipayState("idle");
+        return;
+      }
+
+      throw new Error(data.error || "支付订单创建成功，但未返回支付跳转地址");
     } catch (err) {
       setError(err instanceof Error ? err.message : "支付接口未配置，请联系管理员");
       setAlipayState("idle");
@@ -146,6 +161,23 @@ export default function PayPage() {
             <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
               {error}
             </p>
+          ) : null}
+
+          {paymentContent ? (
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-slate-700">
+              <p className="font-semibold text-slate-950">支付订单已创建</p>
+              <p className="mt-1 leading-6">
+                网关返回了支付内容但不是标准跳转 URL。请复制以下内容到浏览器或支付宝中打开。
+              </p>
+              <a
+                className="mt-3 block break-all rounded-xl bg-white p-3 font-mono text-xs font-semibold text-blue-700"
+                href={paymentContent}
+                rel="noreferrer"
+                target="_blank"
+              >
+                {paymentContent}
+              </a>
+            </div>
           ) : null}
         </div>
 

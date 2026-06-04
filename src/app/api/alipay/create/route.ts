@@ -4,36 +4,77 @@ import { getOrder, recordProviderCreateResult } from "@/lib/recharge-store";
 
 type ProviderRawResponse = {
   code?: string | number;
+  retCode?: string | number;
   msg?: string;
+  retMsg?: string;
   payData?: string;
   payDataType?: string;
   payOrderId?: string;
+  payUrl?: string;
+  cashierUrl?: string;
+  checkoutUrl?: string;
+  codeUrl?: string;
+  qrCode?: string;
+  payInfo?: string;
+  data?: {
+    payOrderId?: string;
+    payDataType?: string;
+    payUrl?: string;
+    payData?: string;
+    cashierUrl?: string;
+    checkoutUrl?: string;
+    codeUrl?: string;
+    qrCode?: string;
+    payInfo?: string;
+  };
 };
+
+function isUrl(value: string) {
+  return /^https?:\/\//i.test(value);
+}
 
 function createDebugPayload(input: {
   provider: string;
   providerOrderId?: string | null;
   paymentUrl?: string | null;
+  paymentContent?: string | null;
   rawResponse?: unknown;
 }) {
   const raw = (input.rawResponse || {}) as ProviderRawResponse;
-  const paymentUrl = input.paymentUrl || raw.payData || "";
+  const paymentValue =
+    input.paymentUrl ||
+    input.paymentContent ||
+    raw.payUrl ||
+    raw.cashierUrl ||
+    raw.checkoutUrl ||
+    raw.codeUrl ||
+    raw.payData ||
+    raw.qrCode ||
+    raw.payInfo ||
+    raw.data?.payUrl ||
+    raw.data?.cashierUrl ||
+    raw.data?.checkoutUrl ||
+    raw.data?.codeUrl ||
+    raw.data?.payData ||
+    raw.data?.qrCode ||
+    raw.data?.payInfo ||
+    "";
   let host = "";
 
   try {
-    host = paymentUrl ? new URL(paymentUrl).host : "";
+    host = paymentValue && isUrl(paymentValue) ? new URL(paymentValue).host : "";
   } catch {
-    host = "非标准 URL";
+    host = "non-standard URL";
   }
 
   return {
     provider: input.provider,
-    payDataType: raw.payDataType || null,
+    payDataType: raw.payDataType || raw.data?.payDataType || null,
     payment_url_host: host,
-    payment_url_prefix: paymentUrl.slice(0, 80),
-    provider_order_id: input.providerOrderId || raw.payOrderId || null,
-    raw_code: raw.code ?? null,
-    raw_msg: raw.msg ?? null,
+    payment_value_prefix: paymentValue.slice(0, 80),
+    provider_order_id: input.providerOrderId || raw.payOrderId || raw.data?.payOrderId || null,
+    raw_code: raw.code ?? raw.retCode ?? null,
+    raw_msg: raw.msg ?? raw.retMsg ?? null,
   };
 }
 
@@ -64,6 +105,7 @@ export async function POST(request: Request) {
           provider: result.provider,
           providerOrderId: result.providerOrderId,
           paymentUrl: result.paymentUrl,
+          paymentContent: result.paymentContent,
           rawResponse: result.rawResponse,
         })
       : undefined;
@@ -80,7 +122,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!result.paymentUrl) {
+    if (!result.paymentUrl && !result.paymentContent) {
       await recordProviderCreateResult({
         orderNo,
         provider: result.provider,
@@ -91,7 +133,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         {
-          error: result.error || "支付链接创建失败",
+          error: result.error || "支付订单创建成功，但未返回支付跳转地址",
           provider: result.provider,
           raw_response: result.rawResponse,
           ...(debug ? { debug } : {}),
@@ -105,13 +147,15 @@ export async function POST(request: Request) {
       provider: result.provider,
       providerOrderId: result.providerOrderId,
       rawResponse: result.rawResponse || null,
-      paymentUrl: result.paymentUrl,
+      paymentUrl: result.paymentUrl || null,
     });
 
     return NextResponse.json({
-      type: "redirect",
+      type: result.paymentUrl ? "redirect" : result.paymentContentType || "content",
       provider: result.provider,
-      payment_url: result.paymentUrl,
+      payment_url: result.paymentUrl || null,
+      payment_content: result.paymentContent || result.paymentUrl || null,
+      payment_content_type: result.paymentContentType || (result.paymentUrl ? "url" : null),
       order_no: orderNo,
       provider_order_id: result.providerOrderId || null,
       raw_response: result.rawResponse,
@@ -120,7 +164,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: "数据库未配置，请联系管理员",
+        error: "数据服务未配置或支付订单创建失败，请联系管理员",
         debug: error instanceof Error ? error.message : "unknown error",
       },
       { status: 500 },

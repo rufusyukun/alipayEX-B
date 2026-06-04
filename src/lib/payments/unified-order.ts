@@ -17,16 +17,33 @@ type UnifiedOrderConfig = {
   timeoutSeconds: number;
 };
 
+type UnifiedOrderData = {
+  mchOrderNo?: string;
+  orderState?: number | string;
+  payOrderId?: string;
+  payDataType?: string;
+  payUrl?: string;
+  payData?: string;
+  cashierUrl?: string;
+  checkoutUrl?: string;
+  codeUrl?: string;
+  qrCode?: string;
+  payInfo?: string;
+};
+
 type UnifiedOrderResponse = {
   code?: string | number;
+  retCode?: string | number;
   msg?: string;
-  data?: {
-    mchOrderNo?: string;
-    orderState?: number | string;
-    payData?: string;
-    payDataType?: string;
-    payOrderId?: string;
-  };
+  retMsg?: string;
+  payUrl?: string;
+  payData?: string;
+  cashierUrl?: string;
+  checkoutUrl?: string;
+  codeUrl?: string;
+  qrCode?: string;
+  payInfo?: string;
+  data?: UnifiedOrderData | string;
   sign?: string;
 };
 
@@ -196,23 +213,61 @@ function logCreatePayload(payload: Record<string, unknown>, config: UnifiedOrder
   }
 }
 
-function isSuccessfulCode(code: string | number | undefined) {
-  return code === 0 || code === "0";
+function responseData(response: UnifiedOrderResponse): UnifiedOrderData {
+  return typeof response.data === "object" && response.data !== null ? response.data : {};
+}
+
+function isSuccessfulResponse(response: UnifiedOrderResponse) {
+  const code = response.code ?? response.retCode;
+  const codeText = String(code ?? "").toUpperCase();
+  const message = String(response.msg || response.retMsg || "").toUpperCase();
+
+  return code === 0 || code === "0" || codeText === "SUCCESS" || message === "SUCCESS";
 }
 
 function isUrl(value: string) {
   return /^https?:\/\//i.test(value);
 }
 
-function extractPaymentUrl(response: UnifiedOrderResponse) {
-  const payData = response.data?.payData || "";
-  const payDataType = response.data?.payDataType || "";
+function extractPaymentTarget(response: UnifiedOrderResponse) {
+  const data = responseData(response);
+  const candidates = [
+    response.payUrl,
+    response.cashierUrl,
+    response.checkoutUrl,
+    response.codeUrl,
+    response.payData,
+    response.qrCode,
+    response.payInfo,
+    typeof response.data === "string" ? response.data : "",
+    data.payUrl,
+    data.cashierUrl,
+    data.checkoutUrl,
+    data.codeUrl,
+    data.payData,
+    data.qrCode,
+    data.payInfo,
+  ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
 
-  if (payData && (payDataType === "payUrl" || isUrl(payData))) {
-    return payData;
+  const url = candidates.find((value) => isUrl(value.trim()));
+  if (url) {
+    return {
+      content: url.trim(),
+      type: "url" as const,
+    };
   }
 
-  return "";
+  const content = candidates[0]?.trim();
+  if (!content) {
+    return null;
+  }
+
+  const payDataType = String(data.payDataType || "").toLowerCase();
+
+  return {
+    content,
+    type: (payDataType.includes("qr") ? "qr" : "content") as "qr" | "content",
+  };
 }
 
 async function postUnifiedOrder(
@@ -231,6 +286,10 @@ async function postUnifiedOrder(
   });
 
   return (await response.json()) as UnifiedOrderResponse;
+}
+
+function logUnifiedOrderResponse(response: UnifiedOrderResponse) {
+  console.info("[unified_order] create payment raw response", response);
 }
 
 export async function queryUnifiedOrder(orderNo: string) {
@@ -287,30 +346,49 @@ export const unifiedOrderProvider: PaymentProvider = {
     }
 
     const response = await postUnifiedOrder(order, config);
-    const paymentUrl = extractPaymentUrl(response);
+    logUnifiedOrderResponse(response);
 
-    if (!isSuccessfulCode(response.code) || !paymentUrl) {
+    if (!isSuccessfulResponse(response)) {
       return {
         configured: true,
         provider: "unified_order",
         rawResponse: response,
-        error: response.msg || "统一下单未返回可跳转的支付链接",
+        error: response.msg || response.retMsg || "统一下单失败",
       };
     }
+
+    const paymentTarget = extractPaymentTarget(response);
+    if (!paymentTarget) {
+      return {
+        configured: true,
+        provider: "unified_order",
+        rawResponse: response,
+        error: "支付订单创建成功，但未返回支付跳转地址",
+      };
+    }
+
+    const data = responseData(response);
 
     return {
       configured: true,
       provider: "unified_order",
-      paymentUrl,
-      providerOrderId: response.data?.payOrderId,
+      paymentUrl: paymentTarget.type === "url" ? paymentTarget.content : undefined,
+      paymentContent: paymentTarget.content,
+      paymentContentType: paymentTarget.type,
+      providerOrderId: data.payOrderId,
       rawResponse: {
         code: response.code,
+        retCode: response.retCode,
         msg: response.msg,
-        mchOrderNo: response.data?.mchOrderNo,
-        orderState: response.data?.orderState,
-        payData: response.data?.payData,
-        payDataType: response.data?.payDataType,
-        payOrderId: response.data?.payOrderId,
+        retMsg: response.retMsg,
+        payUrl: response.payUrl,
+        payData: response.payData,
+        cashierUrl: response.cashierUrl,
+        checkoutUrl: response.checkoutUrl,
+        codeUrl: response.codeUrl,
+        qrCode: response.qrCode,
+        payInfo: response.payInfo,
+        data,
         sign: response.sign,
       },
     };

@@ -6,6 +6,8 @@ export type CreatePaymentResult = {
   configured: boolean;
   provider: PaymentProviderName;
   paymentUrl?: string;
+  paymentContent?: string;
+  paymentContentType?: "url" | "qr" | "content";
   providerOrderId?: string | null;
   rawResponse?: unknown;
   missing?: string[];
