@@ -5,13 +5,13 @@ export default function Home() {
     <main className="shell py-16">
       <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
         <div>
-          <p className="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-blue-700">
+          <p className="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-[#FF9900]">
             alipayEX
           </p>
-          <h1 className="max-w-3xl text-4xl font-bold leading-tight text-slate-950 md:text-6xl">
+          <h1 className="max-w-3xl text-4xl font-bold leading-tight text-white md:text-6xl">
             独立充值中心
           </h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
+          <p className="mt-6 max-w-2xl text-lg leading-8 text-[#A3A3A3]">
             alipayEX 负责充值订单、mock 支付、支付通知、余额入账和后台对账。
             外部业务系统只需要跳转到这里完成充值流程。
           </p>
@@ -34,11 +34,11 @@ export default function Home() {
               ["后台对账", "后续接入交易核对与入账审计"],
             ].map(([title, desc]) => (
               <div
-                className="rounded-md border border-slate-200 bg-slate-50 p-4"
+                className="rounded-md border border-[#2A2A2A] bg-[#1F1F1F] p-4"
                 key={title}
               >
-                <h2 className="font-semibold text-slate-950">{title}</h2>
-                <p className="mt-1 text-sm leading-6 text-slate-600">{desc}</p>
+                <h2 className="font-semibold text-white">{title}</h2>
+                <p className="mt-1 text-sm leading-6 text-[#A3A3A3]">{desc}</p>
               </div>
             ))}
           </div>

@@ -90,16 +90,16 @@ function formatTime(value: string | null) {
 
 function statusClass(type: PaymentStatus | SupportStatus) {
   const map: Record<string, string> = {
-    paid: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    pending: "bg-amber-50 text-amber-700 border-amber-100",
-    paying: "bg-blue-50 text-blue-700 border-blue-100",
-    failed: "bg-red-50 text-red-700 border-red-100",
-    closed: "bg-slate-100 text-slate-600 border-slate-200",
-    refunded: "bg-violet-50 text-violet-700 border-violet-100",
-    unprocessed: "bg-slate-100 text-slate-700 border-slate-200",
-    processing: "bg-blue-50 text-blue-700 border-blue-100",
-    completed: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    disputed: "bg-red-50 text-red-700 border-red-100",
+    paid: "border-emerald-500/30 bg-emerald-950/40 text-emerald-400",
+    pending: "border-[#FF9900]/30 bg-[#3A2600] text-[#FF9900]",
+    paying: "border-[#FF9900]/30 bg-[#3A2600] text-[#F6A400]",
+    failed: "border-red-500/30 bg-red-950/40 text-red-400",
+    closed: "border-[#2A2A2A] bg-[#242424] text-[#A3A3A3]",
+    refunded: "border-violet-500/30 bg-violet-950/40 text-violet-300",
+    unprocessed: "border-[#2A2A2A] bg-[#242424] text-[#A3A3A3]",
+    processing: "border-[#FF9900]/30 bg-[#3A2600] text-[#F6A400]",
+    completed: "border-emerald-500/30 bg-emerald-950/40 text-emerald-400",
+    disputed: "border-red-500/30 bg-red-950/40 text-red-400",
   };
 
   return map[type] || map.pending;
@@ -366,26 +366,26 @@ export default function AdminRechargePage() {
   const raw = detail?.order.provider_raw_response || null;
 
   if (authenticated === null) {
-    return <main className="min-h-screen bg-slate-100 p-8">正在检查后台登录状态...</main>;
+    return <main className="min-h-screen bg-[#0B0B0B] p-8 text-white">正在检查后台登录状态...</main>;
   }
 
   if (!authenticated) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
-        <form className="w-full max-w-sm rounded-lg bg-white p-6 shadow" onSubmit={login}>
-          <h1 className="text-2xl font-bold text-slate-950">alipayEX 后台登录</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-500">
+      <main className="flex min-h-screen items-center justify-center bg-[#0B0B0B] p-6">
+        <form className="w-full max-w-sm rounded-lg border border-[#2A2A2A] bg-[#181818] p-6 shadow-xl shadow-black/60" onSubmit={login}>
+          <h1 className="text-2xl font-bold text-white">alipayEX 后台登录</h1>
+          <p className="mt-2 text-sm leading-6 text-[#A3A3A3]">
             请输入 ADMIN_PASSWORD 访问内部对账系统。
           </p>
           <input
-            className="mt-5 h-12 w-full rounded-md border border-slate-300 px-4 outline-none focus:border-blue-600"
+            className="mt-5 h-12 w-full rounded-md border border-[#2A2A2A] bg-[#1F1F1F] px-4 text-white outline-none focus:border-[#FF9900]"
             onChange={(event) => setPassword(event.target.value)}
             placeholder="后台密码"
             type="password"
             value={password}
           />
           {loginError ? <p className="mt-3 text-sm font-semibold text-red-600">{loginError}</p> : null}
-          <button className="mt-5 h-12 w-full rounded-md bg-blue-600 font-bold text-white" type="submit">
+          <button className="mt-5 h-12 w-full rounded-md bg-[#FF9900] font-bold text-black" type="submit">
             登录后台
           </button>
         </form>
@@ -394,17 +394,17 @@ export default function AdminRechargePage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6 text-slate-950">
+    <main className="min-h-screen bg-[#0B0B0B] p-6 text-white">
       <div className="mx-auto max-w-7xl">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">充值订单对账</h1>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-[#A3A3A3]">
               alipayEX 内部后台，用于按订单号查询、核对和人工处理充值问题。
             </p>
           </div>
           <button
-            className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold"
+            className="rounded-md border border-[#2A2A2A] bg-[#1F1F1F] px-4 py-2 text-sm font-semibold text-[#F6A400] hover:bg-[#242424]"
             onClick={() => fetch("/api/admin/auth/logout", { method: "POST" }).then(() => setAuthenticated(false))}
             type="button"
           >
@@ -414,18 +414,18 @@ export default function AdminRechargePage() {
 
         <section className="mb-6 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
           {statCards.map(([label, value]) => (
-            <div className="rounded-lg border border-slate-200 bg-white p-4" key={label}>
-              <div className="text-xs text-slate-500">{label}</div>
-              <div className="mt-2 text-2xl font-black">{value}</div>
+            <div className="rounded-lg border border-[#2A2A2A] bg-[#181818] p-4" key={label}>
+              <div className="text-xs text-[#A3A3A3]">{label}</div>
+              <div className="mt-2 text-2xl font-black text-[#FF9900]">{value}</div>
             </div>
           ))}
         </section>
 
-        <section className="mb-4 rounded-lg border border-slate-200 bg-white p-4">
+        <section className="mb-4 rounded-lg border border-[#2A2A2A] bg-[#181818] p-4">
           <div className="grid gap-3 md:grid-cols-6">
-            <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" onChange={(event) => setFilters({ ...filters, orderNo: event.target.value })} placeholder="订单号" value={filters.orderNo} />
-            <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" onChange={(event) => setFilters({ ...filters, phone: event.target.value })} placeholder="手机号" value={filters.phone} />
-            <select className="h-10 rounded-md border border-slate-200 px-3 text-sm" onChange={(event) => setFilters({ ...filters, paymentStatus: event.target.value })} value={filters.paymentStatus}>
+            <input className="h-10 rounded-md border border-[#2A2A2A] bg-[#111111] px-3 text-sm text-white" onChange={(event) => setFilters({ ...filters, orderNo: event.target.value })} placeholder="订单号" value={filters.orderNo} />
+            <input className="h-10 rounded-md border border-[#2A2A2A] bg-[#111111] px-3 text-sm text-white" onChange={(event) => setFilters({ ...filters, phone: event.target.value })} placeholder="手机号" value={filters.phone} />
+            <select className="h-10 rounded-md border border-[#2A2A2A] bg-[#111111] px-3 text-sm text-white" onChange={(event) => setFilters({ ...filters, paymentStatus: event.target.value })} value={filters.paymentStatus}>
               <option value="all">全部支付状态</option>
               <option value="pending">pending</option>
               <option value="paid">paid</option>
@@ -433,34 +433,34 @@ export default function AdminRechargePage() {
               <option value="closed">closed</option>
               <option value="refunded">refunded</option>
             </select>
-            <select className="h-10 rounded-md border border-slate-200 px-3 text-sm" onChange={(event) => setFilters({ ...filters, supportStatus: event.target.value })} value={filters.supportStatus}>
+            <select className="h-10 rounded-md border border-[#2A2A2A] bg-[#111111] px-3 text-sm text-white" onChange={(event) => setFilters({ ...filters, supportStatus: event.target.value })} value={filters.supportStatus}>
               <option value="all">全部处理状态</option>
               <option value="unprocessed">unprocessed</option>
               <option value="processing">processing</option>
               <option value="completed">completed</option>
               <option value="disputed">disputed</option>
             </select>
-            <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" onChange={(event) => setFilters({ ...filters, dateFrom: event.target.value })} type="date" value={filters.dateFrom} />
-            <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" onChange={(event) => setFilters({ ...filters, dateTo: event.target.value })} type="date" value={filters.dateTo} />
+            <input className="h-10 rounded-md border border-[#2A2A2A] bg-[#111111] px-3 text-sm text-white" onChange={(event) => setFilters({ ...filters, dateFrom: event.target.value })} type="date" value={filters.dateFrom} />
+            <input className="h-10 rounded-md border border-[#2A2A2A] bg-[#111111] px-3 text-sm text-white" onChange={(event) => setFilters({ ...filters, dateTo: event.target.value })} type="date" value={filters.dateTo} />
           </div>
-          <button className="mt-3 rounded-md bg-slate-950 px-4 py-2 text-sm font-bold text-white" onClick={loadData} type="button">
+          <button className="mt-3 rounded-md bg-[#FF9900] px-4 py-2 text-sm font-black text-black hover:bg-[#F6A400]" onClick={loadData} type="button">
             {loading ? "查询中" : "查询订单"}
           </button>
           <button
-            className="ml-2 mt-3 rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700 disabled:opacity-60"
+            className="ml-2 mt-3 rounded-md border border-[#FF9900]/40 bg-[#FF9900] px-4 py-2 text-sm font-black text-black disabled:opacity-60 hover:bg-[#F6A400]"
             disabled={syncingRecent}
             onClick={() => syncRecentPendingOrders("manual")}
             type="button"
           >
             {syncingRecent ? "正在同步最近待支付订单" : "批量同步最近待支付订单"}
           </button>
-          {queryMessage ? <p className="mt-2 text-sm text-slate-500">{queryMessage}</p> : null}
+          {queryMessage ? <p className="mt-2 text-sm text-[#A3A3A3]">{queryMessage}</p> : null}
         </section>
 
-        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <section className="overflow-hidden rounded-lg border border-[#2A2A2A] bg-[#181818]">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1120px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+              <thead className="bg-slate-50 text-xs uppercase text-[#A3A3A3]">
                 <tr>
                   <th className="p-3">订单号</th>
                   <th className="p-3">支付金额</th>
@@ -475,7 +475,7 @@ export default function AdminRechargePage() {
               </thead>
               <tbody>
                 {orders.map((order) => (
-                  <tr className="border-t border-slate-100" key={order.order_no}>
+                  <tr className="border-t border-[#2A2A2A]" key={order.order_no}>
                     <td className="break-all p-3 font-mono text-xs font-semibold">{order.order_no}</td>
                     <td className="p-3 font-bold">{formatMoney(order.amount_cents)}</td>
                     <td className="p-3">支付宝支付</td>
@@ -484,10 +484,10 @@ export default function AdminRechargePage() {
                     <td className="p-3"><span className={`rounded-full border px-2 py-1 text-xs ${statusClass(order.support_status)}`}>{supportLabels[order.support_status]}</span></td>
                     <td className="p-3">{formatTime(order.created_at)}</td>
                     <td className="p-3">{formatTime(order.paid_at)}</td>
-                    <td className="p-3"><button className="font-bold text-blue-600" onClick={() => openDetail(order.order_no)} type="button">查看详情</button></td>
+                    <td className="p-3"><button className="font-bold text-[#FF9900]" onClick={() => openDetail(order.order_no)} type="button">查看详情</button></td>
                   </tr>
                 ))}
-                {orders.length === 0 ? <tr><td className="p-8 text-center text-slate-500" colSpan={9}>暂无订单数据</td></tr> : null}
+                {orders.length === 0 ? <tr><td className="p-8 text-center text-[#A3A3A3]" colSpan={9}>暂无订单数据</td></tr> : null}
               </tbody>
             </table>
           </div>
@@ -495,11 +495,11 @@ export default function AdminRechargePage() {
       </div>
 
       {detail ? (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/40 p-4">
-          <section className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-lg bg-white p-5 shadow-xl">
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-4">
+          <section className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-lg border border-[#2A2A2A] bg-[#181818] p-5 shadow-xl shadow-black/60">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xl font-bold">订单详情</h2>
-              <button className="rounded-md bg-slate-100 px-3 py-1" onClick={() => setDetail(null)} type="button">关闭</button>
+              <button className="rounded-md bg-[#242424] px-3 py-1 text-[#F6A400]" onClick={() => setDetail(null)} type="button">关闭</button>
             </div>
             <dl className="grid gap-3 text-sm md:grid-cols-2">
               {[
@@ -517,45 +517,45 @@ export default function AdminRechargePage() {
                 ["支付通知验签状态", signLabel(detail.order.notify_sign_verified)],
                 ["客服处理状态", supportLabels[detail.order.support_status]],
               ].map(([label, value]) => (
-                <div className="rounded-md bg-slate-50 p-3" key={label}>
-                  <dt className="text-slate-500">{label}</dt>
+                <div className="rounded-md bg-[#1F1F1F] p-3" key={label}>
+                  <dt className="text-[#A3A3A3]">{label}</dt>
                   <dd className="mt-1 break-all font-semibold">{value}</dd>
                 </div>
               ))}
             </dl>
 
             <div className="mt-4">
-              <button className="rounded-md bg-slate-950 px-4 py-2 text-sm font-bold text-white" onClick={queryAlipay} type="button">
+              <button className="rounded-md bg-[#FF9900] px-4 py-2 text-sm font-black text-black hover:bg-[#F6A400]" onClick={queryAlipay} type="button">
                 主动查询支付宝订单
               </button>
-              {queryMessage ? <p className="mt-2 text-sm text-slate-500">{queryMessage}</p> : null}
+              {queryMessage ? <p className="mt-2 text-sm text-[#A3A3A3]">{queryMessage}</p> : null}
             </div>
 
-            <div className="mt-4 rounded-md border border-slate-100 bg-slate-50 p-3">
+            <div className="mt-4 rounded-md border border-slate-100 bg-[#1F1F1F] p-3">
               <h3 className="mb-3 text-sm font-bold">provider raw_response 摘要</h3>
               <dl className="grid gap-2 text-sm md:grid-cols-2">
-                <div><dt className="text-slate-500">code</dt><dd className="font-semibold">{String(raw?.code ?? "-")}</dd></div>
-                <div><dt className="text-slate-500">msg</dt><dd className="font-semibold">{String(raw?.msg ?? "-")}</dd></div>
-                <div><dt className="text-slate-500">payDataType</dt><dd className="font-semibold">{payDataTypeLabel(raw?.payDataType)}</dd></div>
-                <div><dt className="text-slate-500">payData URL 状态</dt><dd className="font-semibold">{paymentUrlLabel(raw?.payData)}</dd></div>
+                <div><dt className="text-[#A3A3A3]">code</dt><dd className="font-semibold">{String(raw?.code ?? "-")}</dd></div>
+                <div><dt className="text-[#A3A3A3]">msg</dt><dd className="font-semibold">{String(raw?.msg ?? "-")}</dd></div>
+                <div><dt className="text-[#A3A3A3]">payDataType</dt><dd className="font-semibold">{payDataTypeLabel(raw?.payDataType)}</dd></div>
+                <div><dt className="text-[#A3A3A3]">payData URL 状态</dt><dd className="font-semibold">{paymentUrlLabel(raw?.payData)}</dd></div>
                 <div className="md:col-span-2">
-                  <dt className="text-slate-500">payData 前 120 字符</dt>
+                  <dt className="text-[#A3A3A3]">payData 前 120 字符</dt>
                   <dd className="mt-1 break-all font-mono text-xs font-semibold">{raw?.payData?.slice(0, 120) || "-"}</dd>
                 </div>
               </dl>
-              <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-white p-3 text-xs text-slate-600">
+              <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded border border-[#2A2A2A] bg-[#111111] p-3 text-xs text-[#A3A3A3]">
                 {JSON.stringify(detail.order.provider_raw_response || null, null, 2)}
               </pre>
             </div>
 
             <div className="mt-4">
               <label className="text-sm font-bold" htmlFor="support-note">客服备注</label>
-              <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-200 p-3 text-sm" id="support-note" onChange={(event) => setNote(event.target.value)} placeholder="例如：客户已联系、已核对付款截图、金额不一致待复核" value={note} />
+              <textarea className="mt-2 min-h-28 w-full rounded-md border border-[#2A2A2A] bg-[#111111] p-3 text-sm text-white" id="support-note" onChange={(event) => setNote(event.target.value)} placeholder="例如：客户已联系、已核对付款截图、金额不一致待复核" value={note} />
               <div className="mt-3 flex flex-wrap gap-2">
                 <button className="rounded-md bg-blue-600 px-4 py-2 text-sm font-bold text-white" onClick={() => saveSupport("processing")} type="button">标记为处理中</button>
-                <button className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-bold text-white" onClick={() => saveSupport("completed")} type="button">标记为已完成</button>
-                <button className="rounded-md bg-red-600 px-4 py-2 text-sm font-bold text-white" onClick={() => saveSupport("disputed")} type="button">标记为有争议</button>
-                <button className="rounded-md border border-slate-200 px-4 py-2 text-sm font-bold" onClick={() => saveSupport()} type="button">保存客服备注</button>
+                <button className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-bold text-black" onClick={() => saveSupport("completed")} type="button">标记为已完成</button>
+                <button className="rounded-md bg-red-500 px-4 py-2 text-sm font-bold text-white" onClick={() => saveSupport("disputed")} type="button">标记为有争议</button>
+                <button className="rounded-md border border-[#2A2A2A] px-4 py-2 text-sm font-bold text-[#F6A400]" onClick={() => saveSupport()} type="button">保存客服备注</button>
               </div>
             </div>
 
@@ -564,10 +564,10 @@ export default function AdminRechargePage() {
                 <h3 className="mb-2 font-bold">支付事件记录</h3>
                 <div className="space-y-2">
                   {detail.payment_events.map((event) => (
-                    <div className="rounded-md border border-slate-100 p-3 text-xs" key={event.id}>
+                    <div className="rounded-md border border-[#2A2A2A] bg-[#1F1F1F] p-3 text-xs" key={event.id}>
                       <div className="font-bold">{event.event_type} / {event.trade_status}</div>
-                      <div className="mt-1 text-slate-500">{formatTime(event.received_at)} · {event.process_result} · {signLabel(event.sign_verified ?? null)}</div>
-                      <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-all rounded bg-slate-50 p-2 text-[11px] text-slate-500">
+                      <div className="mt-1 text-[#A3A3A3]">{formatTime(event.received_at)} · {event.process_result} · {signLabel(event.sign_verified ?? null)}</div>
+                      <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-all rounded bg-slate-50 p-2 text-[11px] text-[#A3A3A3]">
                         {JSON.stringify(event.raw_payload || null, null, 2)}
                       </pre>
                     </div>
@@ -578,11 +578,11 @@ export default function AdminRechargePage() {
                 <h3 className="mb-2 font-bold">操作记录</h3>
                 <div className="space-y-2">
                   {detail.support_operations.length ? detail.support_operations.map((operation) => (
-                    <div className="rounded-md border border-slate-100 p-3 text-xs" key={operation.id}>
+                    <div className="rounded-md border border-[#2A2A2A] bg-[#1F1F1F] p-3 text-xs" key={operation.id}>
                       <div className="font-bold">{operation.action}</div>
-                      <div className="mt-1 text-slate-500">{formatTime(operation.created_at)}</div>
+                      <div className="mt-1 text-[#A3A3A3]">{formatTime(operation.created_at)}</div>
                     </div>
-                  )) : <div className="text-sm text-slate-500">暂无操作记录</div>}
+                  )) : <div className="text-sm text-[#A3A3A3]">暂无操作记录</div>}
                 </div>
               </div>
             </div>

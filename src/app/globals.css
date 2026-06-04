@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f8fb;
-  --foreground: #121826;
-  --muted: #637083;
-  --panel: #ffffff;
-  --line: #d9dfeb;
-  --primary: #006bff;
-  --primary-dark: #0052c7;
+  --background: #0b0b0b;
+  --foreground: #ffffff;
+  --muted: #a3a3a3;
+  --panel: #181818;
+  --line: #2a2a2a;
+  --primary: #ff9900;
+  --primary-dark: #f6a400;
 }
 
 * {
@@ -45,8 +45,8 @@ input {
   border-radius: 8px;
   border: 1px solid transparent;
   background: var(--primary);
-  color: #ffffff;
-  font-weight: 700;
+  color: #111111;
+  font-weight: 900;
   padding: 0 18px;
   transition: background 160ms ease, border-color 160ms ease;
 }
@@ -57,13 +57,13 @@ input {
 
 .button.secondary {
   border-color: var(--line);
-  background: #ffffff;
-  color: var(--foreground);
+  background: #1f1f1f;
+  color: #f6a400;
 }
 
 .button.secondary:hover {
-  border-color: #aeb9cb;
-  background: #f4f6fa;
+  border-color: #ff9900;
+  background: #242424;
 }
 
 .panel {

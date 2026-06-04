@@ -329,12 +329,12 @@ export default function PayPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 px-3 py-4 text-slate-950">
-      <section className="mx-auto flex min-h-[calc(100vh-32px)] w-full max-w-[430px] flex-col overflow-hidden rounded-[28px] bg-white shadow-xl shadow-slate-300/40">
+    <main className="min-h-screen bg-slate-100 px-3 py-4 text-white">
+      <section className="mx-auto flex min-h-[calc(100vh-32px)] w-full max-w-[430px] flex-col overflow-hidden rounded-[28px] bg-[#181818] shadow-xl shadow-black/60">
         <div className="flex-1 overflow-y-auto px-5 py-5">
           <div className="mb-5 flex items-center justify-between">
             <Link
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-lg"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-[#242424] text-lg text-[#FF9900]"
               href="/recharge"
             >
               ←
@@ -344,42 +344,42 @@ export default function PayPage() {
           </div>
 
           <div className="py-5 text-center">
-            <div className="text-sm text-slate-400">支付金额</div>
+            <div className="text-sm text-[#A3A3A3]">支付金额</div>
             <div className="mt-1 text-5xl font-black">{formatMoney(amount)}</div>
-            <div className="mt-2 text-sm text-blue-600">支付宝支付</div>
+            <div className="mt-2 text-sm text-[#FF9900]">支付宝支付</div>
           </div>
 
-          <dl className="mb-4 space-y-3 rounded-[24px] border border-slate-100 bg-slate-50 p-4 text-sm">
+          <dl className="mb-4 space-y-3 rounded-[24px] border border-[#2A2A2A] bg-[#1F1F1F] p-4 text-sm">
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-500">订单号</dt>
+              <dt className="text-[#A3A3A3]">订单号</dt>
               <dd className="break-all text-right font-medium">{orderNo}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-slate-500">支付金额</dt>
+              <dt className="text-[#A3A3A3]">支付金额</dt>
               <dd className="font-medium">{formatMoney(amount)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-slate-500">支付方式</dt>
+              <dt className="text-[#A3A3A3]">支付方式</dt>
               <dd className="font-medium">支付宝支付</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-slate-500">联系手机号</dt>
+              <dt className="text-[#A3A3A3]">联系手机号</dt>
               <dd className="font-medium">{phone}</dd>
             </div>
           </dl>
 
-          <p className="mb-4 rounded-[24px] border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-slate-600">
+          <p className="mb-4 rounded-[24px] border border-[#2A2A2A] bg-[#1F1F1F] p-4 text-sm leading-6 text-[#A3A3A3]">
             真实支付结果以后端异步通知或查单同步为准。付款后请保存订单号，客服可根据订单号人工跟进。
           </p>
 
           {error ? (
-            <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+            <p className="rounded-2xl border border-red-500/30 bg-red-950/40 px-4 py-3 text-sm font-semibold text-red-400">
               {error}
             </p>
           ) : null}
 
           {notice ? (
-            <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+            <p className="rounded-2xl border border-[#FF9900]/30 bg-[#3A2600] px-4 py-3 text-sm font-semibold text-[#FF9900]">
               {notice}
             </p>
           ) : null}
@@ -388,10 +388,10 @@ export default function PayPage() {
             <p
               className={`mt-3 rounded-2xl px-4 py-3 text-sm font-semibold ${
                 syncState === "paid"
-                  ? "bg-emerald-50 text-emerald-700"
+                  ? "border border-emerald-500/30 bg-emerald-950/40 text-emerald-400"
                   : syncState === "timeout" || syncState === "error"
-                    ? "bg-amber-50 text-amber-700"
-                    : "bg-blue-50 text-blue-700"
+                    ? "border border-[#FF9900]/30 bg-[#3A2600] text-[#FF9900]"
+                    : "border border-[#FF9900]/30 bg-[#1F1F1F] text-[#F6A400]"
               }`}
             >
               {syncMessage}
@@ -399,21 +399,21 @@ export default function PayPage() {
           ) : null}
 
           {!orderExpired && syncState !== "paid" && remainingSeconds !== null ? (
-            <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
+            <p className="mt-3 rounded-2xl border border-[#2A2A2A] bg-[#1F1F1F] px-4 py-3 text-sm font-semibold text-[#A3A3A3]">
               支付剩余时间：{remainingSeconds} 秒
             </p>
           ) : null}
 
           {showFallback && fallbackUrl ? (
-            <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-slate-700">
-              <p className="font-semibold text-slate-950">正在打开支付宝...</p>
+            <div className="rounded-2xl border border-[#2A2A2A] bg-[#1F1F1F] px-4 py-3 text-sm text-[#A3A3A3]">
+              <p className="font-semibold text-white">正在打开支付宝...</p>
               <p className="mt-1 leading-6">
                 备用链接仅用于调试，官方说明 qrUrl 不能直接作为普通链接支付。
               </p>
               <div className="mt-3 grid gap-2">
                 {alipaySchemeAlt ? (
                   <button
-                    className="rounded-xl bg-blue-600 px-4 py-3 font-bold text-white"
+                    className="rounded-xl bg-[#FF9900] px-4 py-3 font-black text-black"
                     onClick={() => openPayment(alipaySchemeAlt, fallbackUrl)}
                     type="button"
                   >
@@ -421,7 +421,7 @@ export default function PayPage() {
                   </button>
                 ) : null}
                 <a
-                  className="rounded-xl bg-white px-4 py-3 font-bold text-blue-700 underline"
+                  className="rounded-xl border border-[#2A2A2A] bg-[#242424] px-4 py-3 font-bold text-[#FF9900] underline"
                   href={fallbackUrl}
                   rel="noreferrer"
                   target="_blank"
@@ -433,13 +433,13 @@ export default function PayPage() {
           ) : null}
 
           {paymentContent ? (
-            <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-slate-700">
-              <p className="font-semibold text-slate-950">支付订单已创建</p>
+            <div className="rounded-2xl border border-[#2A2A2A] bg-[#1F1F1F] px-4 py-3 text-sm text-[#A3A3A3]">
+              <p className="font-semibold text-white">支付订单已创建</p>
               <p className="mt-1 leading-6">
                 网关返回了支付内容但不是标准跳转 URL。请复制以下内容到浏览器或支付宝中打开。
               </p>
               <a
-                className="mt-3 block break-all rounded-xl bg-white p-3 font-mono text-xs font-semibold text-blue-700"
+                className="mt-3 block break-all rounded-xl border border-[#2A2A2A] bg-[#242424] p-3 font-mono text-xs font-semibold text-[#FF9900]"
                 href={paymentContent}
                 rel="noreferrer"
                 target="_blank"
@@ -450,9 +450,9 @@ export default function PayPage() {
           ) : null}
         </div>
 
-        <div className="space-y-3 border-t border-slate-100 bg-white/95 p-4 backdrop-blur">
+        <div className="space-y-3 border-t border-[#2A2A2A] bg-[#111111]/95 p-4 backdrop-blur">
           <button
-            className="flex min-h-[52px] w-full items-center justify-center rounded-2xl bg-blue-600 text-base font-bold text-white transition hover:bg-blue-700 disabled:bg-slate-300"
+            className="flex min-h-[52px] w-full items-center justify-center rounded-2xl bg-[#FF9900] text-base font-black text-black transition hover:bg-[#F6A400] disabled:bg-[#2A2A2A] disabled:text-[#6B6B6B]"
             disabled={orderExpired || checkingOrderStatus || paying || loadingMock || syncState === "paid"}
             onClick={startAlipay}
             type="button"
@@ -471,7 +471,7 @@ export default function PayPage() {
           </button>
           {isDevelopment ? (
             <button
-              className="flex min-h-[48px] w-full items-center justify-center rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:bg-slate-100"
+              className="flex min-h-[48px] w-full items-center justify-center rounded-2xl border border-[#2A2A2A] bg-[#1F1F1F] text-sm font-bold text-[#A3A3A3] transition hover:bg-[#242424] disabled:bg-[#111111]"
               disabled={loadingMock || paying}
               onClick={confirmMockPay}
               type="button"

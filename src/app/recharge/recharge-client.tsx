@@ -92,9 +92,9 @@ export function RechargeClient() {
   }
 
   return (
-    <main className="min-h-[100dvh] overflow-hidden bg-slate-100 px-3 text-slate-950">
+    <main className="min-h-[100dvh] overflow-hidden bg-[#0B0B0B] px-3 text-white">
       <form
-        className="mx-auto flex min-h-[100dvh] w-full max-w-[430px] flex-col overflow-hidden bg-white shadow-xl shadow-slate-300/40 sm:rounded-[28px]"
+        className="mx-auto flex min-h-[100dvh] w-full max-w-[430px] flex-col overflow-hidden bg-[#181818] shadow-xl shadow-black/60 sm:rounded-[28px]"
         onSubmit={handleSubmit}
       >
         <div className="flex-1 overflow-y-auto px-4 pb-[150px] pt-4">
@@ -102,9 +102,9 @@ export function RechargeClient() {
             <div className="mb-3 flex items-start justify-between gap-4">
               <div>
                 <h1 className="text-xl font-black tracking-tight">账户充值</h1>
-                <p className="mt-1 text-xs text-slate-500">选择金额后使用支付宝完成支付</p>
+                <p className="mt-1 text-xs text-[#A3A3A3]">选择金额后使用支付宝完成支付</p>
               </div>
-              <span className="shrink-0 text-xs font-medium text-slate-400">人民币 CNY</span>
+              <span className="shrink-0 text-xs font-medium text-[#A3A3A3]">人民币 CNY</span>
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
@@ -115,8 +115,8 @@ export function RechargeClient() {
                   <button
                     className={`relative min-h-[96px] rounded-[20px] border p-3.5 text-left transition ${
                       selected
-                        ? "border-blue-600 bg-blue-50 shadow-lg shadow-blue-100"
-                        : "border-slate-100 bg-white shadow-sm shadow-slate-100"
+                        ? "border-[#FF9900] bg-[#242424] shadow-lg shadow-[#FF9900]/20"
+                        : "border-[#2A2A2A] bg-[#1F1F1F] shadow-sm shadow-black/30 hover:border-[#F6A400]/60"
                     }`}
                     key={item.id}
                     onClick={() => setSelectedId(item.id)}
@@ -124,7 +124,7 @@ export function RechargeClient() {
                   >
                     <span
                       className={`absolute right-3 top-3 rounded-full px-2 py-0.5 text-[10px] ${
-                        selected ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"
+                        selected ? "bg-[#FF9900] text-black" : "bg-slate-100 text-[#A3A3A3]"
                       }`}
                     >
                       {item.tag}
@@ -136,24 +136,24 @@ export function RechargeClient() {
             </div>
           </section>
 
-          <section className="mb-4 rounded-[22px] border border-slate-100 bg-slate-50 p-3.5">
+          <section className="mb-4 rounded-[22px] border border-[#2A2A2A] bg-[#1F1F1F] p-3.5">
             <div className="mb-2.5 flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-sm font-black text-blue-700">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#FF9900] text-sm font-black text-black">
                 ¥
               </span>
               <h2 className="text-base font-bold">支付方式</h2>
             </div>
-            <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-2.5">
+            <div className="flex items-center justify-between rounded-2xl border border-[#2A2A2A] bg-[#242424] p-2.5">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-600 font-black text-white">
+                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#FF9900] font-black text-black">
                   支
                 </div>
                 <div>
                   <div className="font-bold">支付宝支付</div>
-                  <div className="text-xs text-slate-400">跳转支付宝完成付款</div>
+                  <div className="text-xs text-[#A3A3A3]">跳转支付宝完成付款</div>
                 </div>
               </div>
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-xs text-white">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#FF9900] text-xs text-black">
                 ✓
               </span>
             </div>
@@ -161,10 +161,10 @@ export function RechargeClient() {
 
           <section className="mb-4">
             <label className="mb-2 block text-sm font-bold" htmlFor="phone">
-              接收凭证手机号 <span className="font-normal text-slate-400">可选</span>
+              接收凭证手机号 <span className="font-normal text-[#A3A3A3]">可选</span>
             </label>
             <input
-              className="w-full rounded-2xl border border-slate-100 bg-white px-4 py-2.5 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+              className="w-full rounded-2xl border border-[#2A2A2A] bg-[#1F1F1F] px-4 py-2.5 text-white outline-none transition placeholder:text-[#6B6B6B] focus:border-[#FF9900] focus:ring-4 focus:ring-[#FF9900]/15"
               id="phone"
               inputMode="numeric"
               maxLength={11}
@@ -180,16 +180,16 @@ export function RechargeClient() {
           <section className="mb-4 grid grid-cols-2 gap-2">
             {examples.map((item) => (
               <div
-                className="flex items-center gap-1.5 rounded-2xl border border-slate-100 bg-white px-3 py-1.5 text-xs text-slate-500"
+                className="flex items-center gap-1.5 rounded-2xl border border-[#2A2A2A] bg-[#1F1F1F] px-3 py-1.5 text-xs text-[#A3A3A3]"
                 key={item}
               >
-                <span className="text-blue-500">✓</span>
+                <span className="text-[#FF9900]">✓</span>
                 {item}
               </div>
             ))}
           </section>
 
-          <label className="flex items-start gap-2 text-xs leading-relaxed text-slate-500">
+          <label className="flex items-start gap-2 text-xs leading-relaxed text-[#A3A3A3]">
             <input
               checked={agree}
               className="mt-0.5"
@@ -202,19 +202,19 @@ export function RechargeClient() {
           </label>
 
           {error ? (
-            <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+            <p className="mt-4 rounded-2xl border border-red-500/30 bg-red-950/40 px-4 py-3 text-sm font-semibold text-red-400">
               {error}
             </p>
           ) : null}
         </div>
 
-        <footer className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-100 bg-white/95 px-3 pt-3 pb-[max(14px,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur">
+        <footer className="fixed inset-x-0 bottom-0 z-50 border-t border-[#2A2A2A] bg-[#111111]/95 px-3 pt-3 pb-[max(14px,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur">
           <div className="mx-auto mb-3 flex w-full max-w-[430px] items-center justify-between text-sm">
-            <span className="text-slate-500">应付金额</span>
-            <span className="text-2xl font-black text-slate-950">{formatMoney(payable)}</span>
+            <span className="text-[#A3A3A3]">应付金额</span>
+            <span className="text-2xl font-black text-white">{formatMoney(payable)}</span>
           </div>
           <button
-            className="mx-auto flex min-h-[52px] w-full max-w-[430px] items-center justify-center rounded-2xl bg-blue-600 text-base font-bold text-white transition hover:bg-blue-700 disabled:bg-slate-300"
+            className="mx-auto flex min-h-[52px] w-full max-w-[430px] items-center justify-center rounded-2xl bg-[#FF9900] text-base font-black text-black transition hover:bg-[#F6A400] disabled:bg-[#2A2A2A] disabled:text-[#6B6B6B]"
             disabled={!canSubmit}
             type="submit"
           >
