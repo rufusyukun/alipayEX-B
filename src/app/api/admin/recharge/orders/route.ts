@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { isAdminRequest } from "@/lib/auth";
-import { syncRecentPendingOrders } from "@/lib/admin-sync-pending";
 import { listOrders, PaymentStatus, SupportStatus } from "@/lib/recharge-store";
 
 export async function GET(request: Request) {
@@ -10,7 +9,6 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const syncResult = await syncRecentPendingOrders({ source: "admin_orders_load" });
     const orders = await listOrders({
       orderNo: searchParams.get("orderNo") || undefined,
       phone: searchParams.get("phone") || undefined,
@@ -20,7 +18,7 @@ export async function GET(request: Request) {
       dateTo: searchParams.get("dateTo") || undefined,
     });
 
-    return NextResponse.json({ orders, sync: syncResult });
+    return NextResponse.json({ orders });
   } catch (error) {
     return NextResponse.json(
       {

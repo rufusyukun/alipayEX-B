@@ -258,6 +258,11 @@ export default function AdminRechargePage() {
 
     syncingRecentRef.current = true;
     setSyncingRecent(true);
+    const pendingOrderNos = orders
+      .filter((order) => order.payment_status === "pending")
+      .map((order) => order.order_no)
+      .slice(0, 20);
+
     if (source === "manual") {
       setQueryMessage("开始同步最近待支付订单");
     }
@@ -266,7 +271,7 @@ export default function AdminRechargePage() {
       const response = await fetch("/api/admin/recharge/sync-pending", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source }),
+        body: JSON.stringify({ source, orderNos: pendingOrderNos }),
       });
       const data = (await response.json()) as {
         candidateCount?: number;

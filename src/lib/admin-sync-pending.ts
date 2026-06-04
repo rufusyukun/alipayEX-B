@@ -1,5 +1,6 @@
 import { queryUnifiedOrder } from "@/lib/payments/unified-order";
 import {
+  getOrder,
   listOrders,
   markAlipayPaid,
   recordPaymentEvent,
@@ -19,7 +20,8 @@ type QueryResponse = {
 };
 
 type SyncOptions = {
-  source: "admin_orders_load" | "admin_manual_sync" | "admin_auto_sync";
+  source: "admin_manual_sync" | "admin_auto_sync";
+  orderNos?: string[];
 };
 
 function readString(payload: Record<string, unknown>, keys: string[]) {
@@ -74,22 +76,32 @@ function extractQueryStatus(rawResponse: unknown) {
   };
 }
 
-function buildCandidateOrders(orders: RechargeOrder[]) {
+async function getRequestedPendingOrders(orderNos: string[] = []) {
+  const uniqueOrderNos = [...new Set(orderNos)].slice(0, 20);
+  const orders = await Promise.all(uniqueOrderNos.map((orderNo) => getOrder(orderNo)));
+
+  return orders.filter(
+    (order): order is RechargeOrder => Boolean(order && order.payment_status === "pending"),
+  );
+}
+
+function buildCandidateOrders(orders: RechargeOrder[], requestedOrders: RechargeOrder[]) {
   const cutoff = Date.now() - 30 * 60 * 1000;
   const recentPending = orders.filter((order) => new Date(order.created_at).getTime() >= cutoff);
-  const latestPending = orders.slice(0, 50);
+  const latestPending = orders.slice(0, 20);
   const byOrderNo = new Map<string, RechargeOrder>();
 
-  for (const order of [...recentPending, ...latestPending]) {
+  for (const order of [...requestedOrders, ...recentPending, ...latestPending]) {
     byOrderNo.set(order.order_no, order);
   }
 
-  return [...byOrderNo.values()].slice(0, 50);
+  return [...byOrderNo.values()].slice(0, 20);
 }
 
 export async function syncRecentPendingOrders(options: SyncOptions) {
   const pendingOrders = await listOrders({ paymentStatus: "pending" });
-  const candidates = buildCandidateOrders(pendingOrders);
+  const requestedOrders = await getRequestedPendingOrders(options.orderNos);
+  const candidates = buildCandidateOrders(pendingOrders, requestedOrders);
 
   console.info("[admin sync pending] candidate orderNo list", {
     source: options.source,
