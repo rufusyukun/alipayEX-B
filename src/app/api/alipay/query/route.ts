@@ -163,14 +163,21 @@ export async function GET(request: Request) {
       processResult = `query_recorded_state:${status.orderState || "unknown"}`;
     }
 
-    await recordPaymentEvent({
-      orderNo,
-      eventType: isAdmin ? "payment_query_admin" : "payment_query_return_url",
-      tradeStatus: status.orderState || order.payment_status,
-      rawPayload: { order_no: orderNo, provider, raw_response: queryResult.rawResponse },
-      processResult,
-      signVerified: status.signVerified,
-    });
+    try {
+      await recordPaymentEvent({
+        orderNo,
+        eventType: isAdmin ? "payment_query_admin" : "payment_query_return_url",
+        tradeStatus: status.orderState || order.payment_status,
+        rawPayload: { order_no: orderNo, provider, raw_response: queryResult.rawResponse },
+        processResult,
+        signVerified: status.signVerified,
+      });
+    } catch (eventError) {
+      console.warn("[unified_order] payment query event log failed", {
+        orderNo,
+        error: eventError instanceof Error ? eventError.message : "unknown error",
+      });
+    }
 
     console.info("[unified_order] payment query sync", {
       orderNo,
@@ -189,7 +196,10 @@ export async function GET(request: Request) {
       missing: isAdmin ? queryResult.missing : undefined,
       synced: Boolean(syncedOrder),
       payment_status: syncedOrder?.payment_status || order.payment_status,
+      paymentStatus: syncedOrder?.payment_status || order.payment_status,
+      status: syncedOrder?.payment_status || order.payment_status,
       order_state: status.orderState || null,
+      orderState: status.orderState || null,
       provider_order_id: status.providerOrderId || null,
       sign_verified: status.signVerified,
       message: queryResult.configured

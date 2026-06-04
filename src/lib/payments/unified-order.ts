@@ -437,6 +437,15 @@ export async function queryUnifiedOrder(orderNo: string) {
     signType: "MD5",
   };
 
+  console.info("[unified_order] query payment payload", {
+    queryUrl: config.queryUrl,
+    mchOrderNo: payload.mchOrderNo,
+    payloadKeys: Object.keys(payload).sort(),
+    hasMchNo: Boolean(payload.mchNo),
+    hasAppId: Boolean(payload.appId),
+    hasApiKey: Boolean(config.apiKey),
+  });
+
   const response = await fetch(config.queryUrl, {
     method: "POST",
     headers: {
