@@ -24,7 +24,9 @@ export default function PayPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [paymentContent, setPaymentContent] = useState("");
-  const [paymentUrl, setPaymentUrl] = useState("");
+  const [alipayScheme, setAlipayScheme] = useState("");
+  const [fallbackUrl, setFallbackUrl] = useState("");
+  const [showFallback, setShowFallback] = useState(false);
   const orderNo = params.orderNo;
   const amount = searchParams.get("amount");
   const phoneParam = searchParams.get("phone");
@@ -42,14 +44,31 @@ export default function PayPage() {
     return `/success?${successParams.toString()}`;
   }
 
+  function openPayment(schemeOrUrl: string, fallback?: string) {
+    setAlipayState("jumping");
+    setShowFallback(false);
+    window.location.href = schemeOrUrl;
+
+    if (fallback) {
+      window.setTimeout(() => {
+        setShowFallback(true);
+        setAlipayState("idle");
+      }, 1500);
+    }
+  }
+
   async function startAlipay() {
     if (paying || loadingMock) {
       return;
     }
 
-    if (paymentUrl) {
-      setAlipayState("jumping");
-      window.location.href = paymentUrl;
+    if (alipayScheme) {
+      openPayment(alipayScheme, fallbackUrl);
+      return;
+    }
+
+    if (fallbackUrl) {
+      openPayment(fallbackUrl);
       return;
     }
 
@@ -57,6 +76,7 @@ export default function PayPage() {
     setError("");
     setNotice("");
     setPaymentContent("");
+    setShowFallback(false);
 
     try {
       const response = await fetch("/api/alipay/create", {
@@ -68,6 +88,8 @@ export default function PayPage() {
       });
       const data = (await response.json()) as {
         payment_url?: string | null;
+        alipay_scheme?: string | null;
+        fallback_url?: string | null;
         payment_content?: string | null;
         payment_content_type?: "url" | "qr" | "content" | null;
         error?: string;
@@ -84,10 +106,16 @@ export default function PayPage() {
         throw new Error(message);
       }
 
+      if (data.alipay_scheme) {
+        setAlipayScheme(data.alipay_scheme);
+        setFallbackUrl(data.fallback_url || "");
+        openPayment(data.alipay_scheme, data.fallback_url || "");
+        return;
+      }
+
       if (data.payment_url) {
-        setPaymentUrl(data.payment_url);
-        setAlipayState("jumping");
-        window.location.href = data.payment_url;
+        setFallbackUrl(data.payment_url);
+        openPayment(data.payment_url);
         return;
       }
 
@@ -190,6 +218,20 @@ export default function PayPage() {
             </p>
           ) : null}
 
+          {showFallback && fallbackUrl ? (
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-slate-700">
+              <p className="font-semibold text-slate-950">正在打开支付宝...</p>
+              <a
+                className="mt-2 block font-semibold text-blue-700 underline"
+                href={fallbackUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                如果没有自动打开支付宝，请点击这里继续支付
+              </a>
+            </div>
+          ) : null}
+
           {paymentContent ? (
             <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-slate-700">
               <p className="font-semibold text-slate-950">支付订单已创建</p>
@@ -218,7 +260,7 @@ export default function PayPage() {
             {alipayState === "creating"
               ? "正在创建支付链接..."
               : alipayState === "jumping"
-                ? "正在跳转支付宝..."
+                ? "正在打开支付宝..."
                 : "跳转支付宝支付"}
           </button>
           {isDevelopment ? (

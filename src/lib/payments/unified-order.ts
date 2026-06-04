@@ -18,6 +18,8 @@ type UnifiedOrderConfig = {
 };
 
 type UnifiedOrderData = {
+  appId?: string;
+  path?: string;
   mchOrderNo?: string;
   orderState?: number | string;
   payOrderId?: string;
@@ -52,6 +54,12 @@ type UnifiedOrderResponse = {
   h5Url?: string;
   data?: UnifiedOrderData | string;
   sign?: string;
+};
+
+type PaymentTarget = {
+  content: string;
+  fallbackUrl?: string;
+  type: "url" | "qr" | "content";
 };
 
 export type UnifiedOrderQueryResponse = Record<string, unknown>;
@@ -236,6 +244,30 @@ function isUrl(value: string) {
   return /^https?:\/\//i.test(value);
 }
 
+function extractQueryParam(url: string, name: string) {
+  try {
+    return new URL(url).searchParams.get(name) || "";
+  } catch {
+    return "";
+  }
+}
+
+function buildAlipayScheme(input: { appId?: string; path?: string; qrUrl?: string }) {
+  if (!input.appId || !input.path || !input.qrUrl) {
+    return "";
+  }
+
+  const jeepayToken = extractQueryParam(input.qrUrl, "jeepayToken");
+
+  if (!jeepayToken) {
+    return "";
+  }
+
+  return `alipays://platformapi/startapp?appId=${input.appId}&page=${encodeURIComponent(
+    input.path,
+  )}&query=${encodeURIComponent(`jeepayToken=${jeepayToken}`)}`;
+}
+
 function parseJsonObject(value: string): UnifiedOrderData | null {
   const trimmed = value.trim();
 
@@ -274,8 +306,39 @@ function paymentFieldsFromObject(value: UnifiedOrderData) {
   ].filter((field): field is string => typeof field === "string" && field.trim().length > 0);
 }
 
+function extractMiniAppTarget(value: UnifiedOrderData | null): PaymentTarget | null {
+  if (!value) {
+    return null;
+  }
+
+  const scheme = buildAlipayScheme({
+    appId: value.appId,
+    path: value.path,
+    qrUrl: value.qrUrl,
+  });
+
+  if (scheme && value.qrUrl) {
+    return {
+      content: scheme,
+      fallbackUrl: value.qrUrl,
+      type: "url" as const,
+    };
+  }
+
+  return value.data ? extractMiniAppTarget(value.data) : null;
+}
+
 function extractPaymentTarget(response: UnifiedOrderResponse) {
   const data = responseData(response);
+  const miniAppTarget =
+    extractMiniAppTarget(typeof data.payData === "string" ? parseJsonObject(data.payData) : null) ||
+    extractMiniAppTarget(data) ||
+    extractMiniAppTarget(typeof response.data === "string" ? parseJsonObject(response.data) : null);
+
+  if (miniAppTarget) {
+    return miniAppTarget;
+  }
+
   const candidates = [
     response.qrUrl,
     response.payUrl,
@@ -302,6 +365,7 @@ function extractPaymentTarget(response: UnifiedOrderResponse) {
   if (url) {
     return {
       content: url.trim(),
+      fallbackUrl: url.trim(),
       type: "url" as const,
     };
   }
@@ -316,6 +380,7 @@ function extractPaymentTarget(response: UnifiedOrderResponse) {
     if (parsedUrl) {
       return {
         content: parsedUrl.trim(),
+        fallbackUrl: parsedUrl.trim(),
         type: "url" as const,
       };
     }
@@ -437,6 +502,8 @@ export const unifiedOrderProvider: PaymentProvider = {
       configured: true,
       provider: "unified_order",
       paymentUrl: paymentTarget.type === "url" ? paymentTarget.content : undefined,
+      alipayScheme: paymentTarget.content.startsWith("alipays://") ? paymentTarget.content : undefined,
+      fallbackUrl: paymentTarget.fallbackUrl,
       paymentContent: paymentTarget.content,
       paymentContentType: paymentTarget.type,
       providerOrderId: data.payOrderId,

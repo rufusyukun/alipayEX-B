@@ -37,12 +37,16 @@ function createDebugPayload(input: {
   provider: string;
   providerOrderId?: string | null;
   paymentUrl?: string | null;
+  alipayScheme?: string | null;
+  fallbackUrl?: string | null;
   paymentContent?: string | null;
   rawResponse?: unknown;
 }) {
   const raw = (input.rawResponse || {}) as ProviderRawResponse;
   const paymentValue =
     input.paymentUrl ||
+    input.alipayScheme ||
+    input.fallbackUrl ||
     input.paymentContent ||
     raw.payUrl ||
     raw.cashierUrl ||
@@ -105,6 +109,8 @@ export async function POST(request: Request) {
           provider: result.provider,
           providerOrderId: result.providerOrderId,
           paymentUrl: result.paymentUrl,
+          alipayScheme: result.alipayScheme,
+          fallbackUrl: result.fallbackUrl,
           paymentContent: result.paymentContent,
           rawResponse: result.rawResponse,
         })
@@ -154,6 +160,8 @@ export async function POST(request: Request) {
       type: result.paymentUrl ? "redirect" : result.paymentContentType || "content",
       provider: result.provider,
       payment_url: result.paymentUrl || null,
+      alipay_scheme: result.alipayScheme || null,
+      fallback_url: result.fallbackUrl || null,
       payment_content: result.paymentContent || result.paymentUrl || null,
       payment_content_type: result.paymentContentType || (result.paymentUrl ? "url" : null),
       order_no: orderNo,
