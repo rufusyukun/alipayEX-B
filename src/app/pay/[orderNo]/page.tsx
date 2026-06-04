@@ -11,6 +11,10 @@ function formatMoney(value: string | null) {
   return `¥${numberValue.toLocaleString("zh-CN")}`;
 }
 
+function isExistingOrderMessage(message: string) {
+  return message.includes("已存在") || message.toLowerCase().includes("already exists");
+}
+
 export default function PayPage() {
   const params = useParams<{ orderNo: string }>();
   const searchParams = useSearchParams();
@@ -18,7 +22,9 @@ export default function PayPage() {
   const [alipayState, setAlipayState] = useState<"idle" | "creating" | "jumping">("idle");
   const [loadingMock, setLoadingMock] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [paymentContent, setPaymentContent] = useState("");
+  const [paymentUrl, setPaymentUrl] = useState("");
   const orderNo = params.orderNo;
   const amount = searchParams.get("amount");
   const phoneParam = searchParams.get("phone");
@@ -41,8 +47,15 @@ export default function PayPage() {
       return;
     }
 
+    if (paymentUrl) {
+      setAlipayState("jumping");
+      window.location.href = paymentUrl;
+      return;
+    }
+
     setAlipayState("creating");
     setError("");
+    setNotice("");
     setPaymentContent("");
 
     try {
@@ -61,10 +74,18 @@ export default function PayPage() {
       };
 
       if (!response.ok) {
-        throw new Error(data.error || "支付接口未配置，请联系管理员");
+        const message = data.error || "支付接口未配置，请联系管理员";
+        if (isExistingOrderMessage(message)) {
+          setNotice("该订单已创建支付请求，请刷新页面或重新下单。");
+          setAlipayState("idle");
+          return;
+        }
+
+        throw new Error(message);
       }
 
       if (data.payment_url) {
+        setPaymentUrl(data.payment_url);
         setAlipayState("jumping");
         window.location.href = data.payment_url;
         return;
@@ -160,6 +181,12 @@ export default function PayPage() {
           {error ? (
             <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
               {error}
+            </p>
+          ) : null}
+
+          {notice ? (
+            <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+              {notice}
             </p>
           ) : null}
 

@@ -22,6 +22,7 @@ type UnifiedOrderData = {
   orderState?: number | string;
   payOrderId?: string;
   payDataType?: string;
+  qrUrl?: string;
   payUrl?: string;
   payData?: string;
   cashierUrl?: string;
@@ -29,6 +30,9 @@ type UnifiedOrderData = {
   codeUrl?: string;
   qrCode?: string;
   payInfo?: string;
+  url?: string;
+  h5Url?: string;
+  data?: UnifiedOrderData;
 };
 
 type UnifiedOrderResponse = {
@@ -36,6 +40,7 @@ type UnifiedOrderResponse = {
   retCode?: string | number;
   msg?: string;
   retMsg?: string;
+  qrUrl?: string;
   payUrl?: string;
   payData?: string;
   cashierUrl?: string;
@@ -43,6 +48,8 @@ type UnifiedOrderResponse = {
   codeUrl?: string;
   qrCode?: string;
   payInfo?: string;
+  url?: string;
+  h5Url?: string;
   data?: UnifiedOrderData | string;
   sign?: string;
 };
@@ -229,17 +236,59 @@ function isUrl(value: string) {
   return /^https?:\/\//i.test(value);
 }
 
+function parseJsonObject(value: string): UnifiedOrderData | null {
+  const trimmed = value.trim();
+
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    return typeof parsed === "object" && parsed !== null ? (parsed as UnifiedOrderData) : null;
+  } catch {
+    return null;
+  }
+}
+
+function paymentFieldsFromObject(value: UnifiedOrderData) {
+  return [
+    value.qrUrl,
+    value.payUrl,
+    value.cashierUrl,
+    value.checkoutUrl,
+    value.url,
+    value.h5Url,
+    value.codeUrl,
+    value.qrCode,
+    value.payInfo,
+    value.data?.qrUrl,
+    value.data?.payUrl,
+    value.data?.cashierUrl,
+    value.data?.checkoutUrl,
+    value.data?.url,
+    value.data?.h5Url,
+    value.data?.codeUrl,
+    value.data?.qrCode,
+    value.data?.payInfo,
+  ].filter((field): field is string => typeof field === "string" && field.trim().length > 0);
+}
+
 function extractPaymentTarget(response: UnifiedOrderResponse) {
   const data = responseData(response);
   const candidates = [
+    response.qrUrl,
     response.payUrl,
     response.cashierUrl,
     response.checkoutUrl,
+    response.url,
+    response.h5Url,
     response.codeUrl,
     response.payData,
     response.qrCode,
     response.payInfo,
     typeof response.data === "string" ? response.data : "",
+    ...paymentFieldsFromObject(data),
     data.payUrl,
     data.cashierUrl,
     data.checkoutUrl,
@@ -255,6 +304,21 @@ function extractPaymentTarget(response: UnifiedOrderResponse) {
       content: url.trim(),
       type: "url" as const,
     };
+  }
+
+  for (const candidate of candidates) {
+    const parsed = parseJsonObject(candidate);
+    if (!parsed) {
+      continue;
+    }
+
+    const parsedUrl = paymentFieldsFromObject(parsed).find((value) => isUrl(value.trim()));
+    if (parsedUrl) {
+      return {
+        content: parsedUrl.trim(),
+        type: "url" as const,
+      };
+    }
   }
 
   const content = candidates[0]?.trim();
@@ -381,6 +445,7 @@ export const unifiedOrderProvider: PaymentProvider = {
         retCode: response.retCode,
         msg: response.msg,
         retMsg: response.retMsg,
+        qrUrl: response.qrUrl,
         payUrl: response.payUrl,
         payData: response.payData,
         cashierUrl: response.cashierUrl,
@@ -388,6 +453,8 @@ export const unifiedOrderProvider: PaymentProvider = {
         codeUrl: response.codeUrl,
         qrCode: response.qrCode,
         payInfo: response.payInfo,
+        url: response.url,
+        h5Url: response.h5Url,
         data,
         sign: response.sign,
       },
