@@ -153,18 +153,23 @@ export default function AdminRechargePage() {
       }
     });
 
-    const [ordersResponse, statsResponse] = await Promise.all([
-      fetch(`/api/admin/recharge/orders?${params.toString()}`),
-      fetch("/api/admin/recharge/stats"),
-    ]);
+    const ordersResponse = await fetch(`/api/admin/recharge/orders?${params.toString()}`);
 
-    if (ordersResponse.status === 401 || statsResponse.status === 401) {
+    if (ordersResponse.status === 401) {
       setAuthenticated(false);
       setLoading(false);
       return;
     }
 
     const ordersData = (await ordersResponse.json()) as { orders: Order[] };
+    const statsResponse = await fetch("/api/admin/recharge/stats");
+
+    if (statsResponse.status === 401) {
+      setAuthenticated(false);
+      setLoading(false);
+      return;
+    }
+
     const statsData = (await statsResponse.json()) as Stats;
     setOrders(ordersData.orders);
     setStats(statsData);
@@ -258,7 +263,11 @@ export default function AdminRechargePage() {
     }
 
     try {
-      const response = await fetch("/api/admin/recharge/sync-pending", { method: "POST" });
+      const response = await fetch("/api/admin/recharge/sync-pending", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source }),
+      });
       const data = (await response.json()) as {
         candidateCount?: number;
         syncedCount?: number;
