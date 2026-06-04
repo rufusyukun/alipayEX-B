@@ -25,6 +25,7 @@ export default function PayPage() {
   const [notice, setNotice] = useState("");
   const [paymentContent, setPaymentContent] = useState("");
   const [alipayScheme, setAlipayScheme] = useState("");
+  const [alipaySchemeAlt, setAlipaySchemeAlt] = useState("");
   const [fallbackUrl, setFallbackUrl] = useState("");
   const [showFallback, setShowFallback] = useState(false);
   const orderNo = params.orderNo;
@@ -89,6 +90,7 @@ export default function PayPage() {
       const data = (await response.json()) as {
         payment_url?: string | null;
         alipay_scheme?: string | null;
+        alipay_scheme_alt?: string | null;
         fallback_url?: string | null;
         payment_content?: string | null;
         payment_content_type?: "url" | "qr" | "content" | null;
@@ -108,6 +110,7 @@ export default function PayPage() {
 
       if (data.alipay_scheme) {
         setAlipayScheme(data.alipay_scheme);
+        setAlipaySchemeAlt(data.alipay_scheme_alt || "");
         setFallbackUrl(data.fallback_url || "");
         openPayment(data.alipay_scheme, data.fallback_url || "");
         return;
@@ -221,14 +224,25 @@ export default function PayPage() {
           {showFallback && fallbackUrl ? (
             <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-slate-700">
               <p className="font-semibold text-slate-950">正在打开支付宝...</p>
-              <a
-                className="mt-2 block font-semibold text-blue-700 underline"
-                href={fallbackUrl}
-                rel="noreferrer"
-                target="_blank"
-              >
-                如果没有自动打开支付宝，请点击这里继续支付
-              </a>
+              <div className="mt-3 grid gap-2">
+                {alipaySchemeAlt ? (
+                  <button
+                    className="rounded-xl bg-blue-600 px-4 py-3 font-bold text-white"
+                    onClick={() => openPayment(alipaySchemeAlt, fallbackUrl)}
+                    type="button"
+                  >
+                    备用方式一：重新打开支付宝
+                  </button>
+                ) : null}
+                <a
+                  className="rounded-xl bg-white px-4 py-3 font-bold text-blue-700 underline"
+                  href={fallbackUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  备用方式二：打开 H5 支付链接
+                </a>
+              </div>
             </div>
           ) : null}
 

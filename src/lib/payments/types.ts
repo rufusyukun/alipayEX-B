@@ -7,6 +7,7 @@ export type CreatePaymentResult = {
   provider: PaymentProviderName;
   paymentUrl?: string;
   alipayScheme?: string;
+  alipaySchemeAlt?: string;
   fallbackUrl?: string;
   paymentContent?: string;
   paymentContentType?: "url" | "qr" | "content";

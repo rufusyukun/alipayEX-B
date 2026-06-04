@@ -58,6 +58,7 @@ type UnifiedOrderResponse = {
 
 type PaymentTarget = {
   content: string;
+  alternateContent?: string;
   fallbackUrl?: string;
   type: "url" | "qr" | "content";
 };
@@ -244,28 +245,22 @@ function isUrl(value: string) {
   return /^https?:\/\//i.test(value);
 }
 
-function extractQueryParam(url: string, name: string) {
-  try {
-    return new URL(url).searchParams.get(name) || "";
-  } catch {
-    return "";
-  }
-}
-
-function buildAlipayScheme(input: { appId?: string; path?: string; qrUrl?: string }) {
+function buildAlipaySchemes(input: { appId?: string; path?: string; qrUrl?: string }) {
   if (!input.appId || !input.path || !input.qrUrl) {
-    return "";
+    return null;
   }
 
-  const jeepayToken = extractQueryParam(input.qrUrl, "jeepayToken");
+  const query = `qrUrl=${input.qrUrl}`;
+  const pageWithQrUrl = `${input.path}?qrUrl=${encodeURIComponent(input.qrUrl)}`;
 
-  if (!jeepayToken) {
-    return "";
-  }
-
-  return `alipays://platformapi/startapp?appId=${input.appId}&page=${encodeURIComponent(
-    input.path,
-  )}&query=${encodeURIComponent(`jeepayToken=${jeepayToken}`)}`;
+  return {
+    primary: `alipays://platformapi/startapp?appId=${input.appId}&page=${encodeURIComponent(
+      input.path,
+    )}&query=${encodeURIComponent(query)}`,
+    alternate: `alipays://platformapi/startapp?appId=${input.appId}&page=${encodeURIComponent(
+      pageWithQrUrl,
+    )}`,
+  };
 }
 
 function parseJsonObject(value: string): UnifiedOrderData | null {
@@ -311,15 +306,16 @@ function extractMiniAppTarget(value: UnifiedOrderData | null): PaymentTarget | n
     return null;
   }
 
-  const scheme = buildAlipayScheme({
+  const schemes = buildAlipaySchemes({
     appId: value.appId,
     path: value.path,
     qrUrl: value.qrUrl,
   });
 
-  if (scheme && value.qrUrl) {
+  if (schemes && value.qrUrl) {
     return {
-      content: scheme,
+      content: schemes.primary,
+      alternateContent: schemes.alternate,
       fallbackUrl: value.qrUrl,
       type: "url" as const,
     };
@@ -503,6 +499,9 @@ export const unifiedOrderProvider: PaymentProvider = {
       provider: "unified_order",
       paymentUrl: paymentTarget.type === "url" ? paymentTarget.content : undefined,
       alipayScheme: paymentTarget.content.startsWith("alipays://") ? paymentTarget.content : undefined,
+      alipaySchemeAlt: paymentTarget.alternateContent?.startsWith("alipays://")
+        ? paymentTarget.alternateContent
+        : undefined,
       fallbackUrl: paymentTarget.fallbackUrl,
       paymentContent: paymentTarget.content,
       paymentContentType: paymentTarget.type,
