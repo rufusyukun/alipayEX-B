@@ -142,6 +142,7 @@ export default function AdminRechargePage() {
   const [loading, setLoading] = useState(false);
   const [queryMessage, setQueryMessage] = useState("");
   const [syncingRecent, setSyncingRecent] = useState(false);
+  const ordersRef = useRef<Order[]>([]);
   const syncingRecentRef = useRef(false);
 
   async function loadData() {
@@ -171,6 +172,7 @@ export default function AdminRechargePage() {
     }
 
     const statsData = (await statsResponse.json()) as Stats;
+    ordersRef.current = ordersData.orders;
     setOrders(ordersData.orders);
     setStats(statsData);
     setAuthenticated(true);
@@ -244,13 +246,25 @@ export default function AdminRechargePage() {
       return;
     }
 
-    const response = await fetch(`/api/alipay/query?order_no=${detail.order.order_no}`);
-    const data = (await response.json()) as { message?: string; error?: string };
-    setQueryMessage(data.message || data.error || "查询请求已发送");
+    const response = await fetch(
+      `/api/alipay/query?order_no=${encodeURIComponent(detail.order.order_no)}&_=${Date.now()}`,
+    );
+    const data = (await response.json()) as {
+      message?: string;
+      error?: string;
+      order_state?: string | null;
+      payment_status?: string;
+      synced?: boolean;
+    };
+    const statusText = data.payment_status || data.order_state || "";
+    setQueryMessage(
+      data.message ||
+        data.error ||
+        `查询请求已发送${statusText ? `，当前状态：${statusText}` : ""}`,
+    );
     await openDetail(detail.order.order_no);
     await loadData();
   }
-
   async function syncRecentPendingOrders(source: "manual" | "auto" = "manual") {
     if (syncingRecentRef.current) {
       return;
@@ -258,7 +272,8 @@ export default function AdminRechargePage() {
 
     syncingRecentRef.current = true;
     setSyncingRecent(true);
-    const pendingOrderNos = orders
+    const currentOrders = source === "auto" ? ordersRef.current : orders;
+    const pendingOrderNos = currentOrders
       .filter((order) => order.payment_status === "pending")
       .map((order) => order.order_no)
       .slice(0, 20);
@@ -268,26 +283,37 @@ export default function AdminRechargePage() {
     }
 
     try {
-      const response = await fetch("/api/admin/recharge/sync-pending", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source, orderNos: pendingOrderNos }),
-      });
-      const data = (await response.json()) as {
-        candidateCount?: number;
-        syncedCount?: number;
-        error?: string;
-      };
+      let syncedCount = 0;
+      let failedCount = 0;
 
-      if (!response.ok) {
-        throw new Error(data.error || "同步最近待支付订单失败");
+      for (const orderNo of pendingOrderNos) {
+        try {
+          const response = await fetch(
+            `/api/alipay/query?order_no=${encodeURIComponent(orderNo)}&_=${Date.now()}`,
+          );
+          const data = (await response.json()) as {
+            payment_status?: string;
+            paymentStatus?: string;
+            status?: string;
+            synced?: boolean;
+          };
+          const paymentStatus = data.payment_status || data.paymentStatus || data.status || "";
+
+          if (response.ok && (paymentStatus.toLowerCase() === "paid" || data.synced)) {
+            syncedCount += 1;
+          } else if (!response.ok) {
+            failedCount += 1;
+          }
+        } catch {
+          failedCount += 1;
+        }
       }
 
-      if (source === "manual" || (data.syncedCount || 0) > 0) {
+      if (source === "manual" || syncedCount > 0 || failedCount > 0) {
         setQueryMessage(
-          `同步完成，候选订单 ${data.candidateCount || 0} 笔，更新已支付订单 ${
-            data.syncedCount || 0
-          } 笔`,
+          `同步完成，查询待支付订单 ${pendingOrderNos.length} 笔，更新已支付订单 ${syncedCount} 笔${
+            failedCount ? `，失败 ${failedCount} 笔` : ""
+          }`,
         );
       }
       await loadData();
@@ -300,7 +326,6 @@ export default function AdminRechargePage() {
       setSyncingRecent(false);
     }
   }
-
   useEffect(() => {
     if (!authenticated) {
       return;
@@ -562,3 +587,4 @@ export default function AdminRechargePage() {
     </main>
   );
 }
+
