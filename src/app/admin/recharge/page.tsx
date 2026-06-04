@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
-type PaymentStatus = "pending" | "paid" | "failed" | "closed";
+type PaymentStatus = "pending" | "paying" | "paid" | "failed" | "closed" | "refunded";
 type SupportStatus = "unprocessed" | "processing" | "completed" | "disputed";
 
 type ProviderRawResponse = {
@@ -66,9 +66,11 @@ type Stats = {
 
 const paymentLabels: Record<PaymentStatus, string> = {
   pending: "待支付",
+  paying: "支付中",
   paid: "已支付",
   failed: "失败",
   closed: "已关闭",
+  refunded: "已退款",
 };
 
 const supportLabels: Record<SupportStatus, string> = {
@@ -90,8 +92,10 @@ function statusClass(type: PaymentStatus | SupportStatus) {
   const map: Record<string, string> = {
     paid: "bg-emerald-50 text-emerald-700 border-emerald-100",
     pending: "bg-amber-50 text-amber-700 border-amber-100",
+    paying: "bg-blue-50 text-blue-700 border-blue-100",
     failed: "bg-red-50 text-red-700 border-red-100",
     closed: "bg-slate-100 text-slate-600 border-slate-200",
+    refunded: "bg-violet-50 text-violet-700 border-violet-100",
     unprocessed: "bg-slate-100 text-slate-700 border-slate-200",
     processing: "bg-blue-50 text-blue-700 border-blue-100",
     completed: "bg-emerald-50 text-emerald-700 border-emerald-100",
@@ -427,6 +431,7 @@ export default function AdminRechargePage() {
               <option value="paid">paid</option>
               <option value="failed">failed</option>
               <option value="closed">closed</option>
+              <option value="refunded">refunded</option>
             </select>
             <select className="h-10 rounded-md border border-slate-200 px-3 text-sm" onChange={(event) => setFilters({ ...filters, supportStatus: event.target.value })} value={filters.supportStatus}>
               <option value="all">全部处理状态</option>

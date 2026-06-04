@@ -1,125 +1,25 @@
 import { NextResponse } from "next/server";
 import { isAdminRequest } from "@/lib/auth";
 import { getPaymentProviderName } from "@/lib/payments";
+import { queryUnifiedOrder } from "@/lib/payments/unified-order";
+import { parseUnifiedOrderState } from "@/lib/payments/unified-order-state";
 import {
-  generateUnifiedOrderSign,
-  getUnifiedOrderConfig,
-  queryUnifiedOrder,
-} from "@/lib/payments/unified-order";
-import { getOrder, markAlipayPaid, recordPaymentEvent } from "@/lib/recharge-store";
-
-type QueryResponse = {
-  code?: string | number;
-  msg?: string;
-  state?: string | number;
-  orderState?: string | number;
-  status?: string | number;
-  payStatus?: string | number;
-  tradeState?: string | number;
-  tradeStatus?: string | number;
-  successTime?: string;
-  paidAt?: string;
-  data?: Record<string, unknown>;
-  sign?: string;
-};
-
-function readString(payload: Record<string, unknown>, keys: string[]) {
-  for (const key of keys) {
-    const value = payload[key];
-    if (value !== undefined && value !== null && String(value) !== "") {
-      return String(value);
-    }
-  }
-
-  return "";
-}
-
-function isSuccessCode(value: string | number | undefined) {
-  return value === 0 || value === "0";
-}
-
-function isPaidState(value: string) {
-  const normalized = value.toUpperCase();
-
-  return (
-    value === "2" ||
-    value === "3" ||
-    normalized === "PAID" ||
-    normalized === "SUCCESS" ||
-    normalized === "PAY_SUCCESS" ||
-    normalized === "TRADE_SUCCESS" ||
-    normalized === "TRADE_FINISHED"
-  );
-}
-
-function verifyQueryResponseSign(rawResponse: QueryResponse) {
-  const sign = rawResponse.sign;
-  const data = rawResponse.data;
-
-  if (!sign || !data) {
-    return null;
-  }
-
-  const { config, configured } = getUnifiedOrderConfig();
-
-  if (!configured) {
-    return false;
-  }
-
-  const expected = generateUnifiedOrderSign(data, config.apiKey);
-  return sign.toUpperCase() === expected.toUpperCase();
-}
-
-function extractQueryStatus(rawResponse: unknown) {
-  const raw = (rawResponse || {}) as QueryResponse;
-  const data = (raw.data || {}) as Record<string, unknown>;
-  const root = raw as unknown as Record<string, unknown>;
-  const orderState =
-    readString(data, ["orderState", "state", "status", "payStatus", "tradeState", "tradeStatus"]) ||
-    readString(root, ["orderState", "state", "status", "payStatus", "tradeState", "tradeStatus"]);
-  const providerOrderId =
-    readString(data, ["payOrderId", "provider_order_id", "trade_no", "tradeNo"]) ||
-    readString(root, ["payOrderId", "provider_order_id", "trade_no", "tradeNo"]);
-  const paidAt =
-    readString(data, ["successTime", "paidAt", "paid_at", "paySuccessTime"]) ||
-    readString(root, ["successTime", "paidAt", "paid_at", "paySuccessTime"]);
-
-  return {
-    orderState,
-    providerOrderId,
-    paidAt,
-    querySucceeded: isSuccessCode(raw.code),
-    signVerified: verifyQueryResponseSign(raw),
-  };
-}
+  getOrder,
+  getOrderByProviderOrderId,
+  recordPaymentEvent,
+  updatePaymentStatusFromQuery,
+} from "@/lib/recharge-store";
 
 function summarizeQueryResponse(rawResponse: unknown) {
-  const raw = (rawResponse || {}) as QueryResponse;
-  const data = (raw.data || {}) as Record<string, unknown>;
+  const parsed = parseUnifiedOrderState(rawResponse);
+  const raw = (rawResponse || {}) as { code?: string | number; msg?: string; data?: unknown };
 
   return {
     code: raw.code ?? null,
     msg: raw.msg ?? null,
-    orderState:
-      readString(data, ["orderState", "state", "status", "payStatus", "tradeState", "tradeStatus"]) ||
-      readString(raw as unknown as Record<string, unknown>, [
-        "orderState",
-        "state",
-        "status",
-        "payStatus",
-        "tradeState",
-        "tradeStatus",
-      ]) ||
-      null,
-    providerOrderId:
-      readString(data, ["payOrderId", "provider_order_id", "trade_no", "tradeNo"]) ||
-      readString(raw as unknown as Record<string, unknown>, [
-        "payOrderId",
-        "provider_order_id",
-        "trade_no",
-        "tradeNo",
-      ]) ||
-      null,
+    orderState: parsed.orderState || null,
+    providerOrderId: parsed.providerOrderId || null,
+    parsedPaymentStatus: parsed.paymentStatus,
     hasData: Boolean(raw.data),
   };
 }
@@ -129,88 +29,111 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const orderNo = searchParams.get("order_no") || searchParams.get("orderNo") || "";
+    const requestedOrderNo = searchParams.get("order_no") || searchParams.get("orderNo") || "";
+    const requestedProviderOrderId =
+      searchParams.get("providerOrderId") || searchParams.get("payOrderId") || "";
 
-    if (!orderNo) {
+    if (!requestedOrderNo && !requestedProviderOrderId) {
       return NextResponse.json({ error: "缺少订单号" }, { status: 400 });
     }
 
-    const order = await getOrder(orderNo);
+    const order = requestedOrderNo
+      ? await getOrder(requestedOrderNo)
+      : await getOrderByProviderOrderId(requestedProviderOrderId);
+
     if (!order) {
-      return NextResponse.json({ error: "订单不存在" }, { status: 404 });
+      return NextResponse.json(
+        {
+          error: requestedProviderOrderId ? "平台订单未匹配本地订单" : "订单不存在",
+          provider_order_id: requestedProviderOrderId || null,
+        },
+        { status: 404 },
+      );
     }
 
     const provider = getPaymentProviderName();
+    const providerOrderId = requestedProviderOrderId || order.provider_order_id || "";
     const queryResult =
       provider === "unified_order"
-        ? await queryUnifiedOrder(orderNo)
+        ? await queryUnifiedOrder({ orderNo: order.order_no, providerOrderId })
         : { configured: false, missing: [], rawResponse: null };
-    const status = extractQueryStatus(queryResult.rawResponse);
+    const parsed = parseUnifiedOrderState(queryResult.rawResponse);
+    const nextProviderOrderId = parsed.providerOrderId || providerOrderId || order.provider_order_id;
     let processResult = queryResult.configured ? "query_sent" : "query_config_missing";
     let syncedOrder = null;
 
-    if (queryResult.configured && status.querySucceeded && isPaidState(status.orderState)) {
-      syncedOrder = await markAlipayPaid({
-        orderNo,
-        alipayTradeNo: status.providerOrderId || order.alipay_trade_no,
-        providerOrderId: status.providerOrderId || order.provider_order_id,
-        paidAt: status.paidAt || order.paid_at,
+    if (queryResult.configured && parsed.querySucceeded && parsed.isTerminal) {
+      syncedOrder = await updatePaymentStatusFromQuery({
+        orderNo: order.order_no,
+        paymentStatus: parsed.paymentStatus,
+        providerOrderId: nextProviderOrderId,
         rawResponse: queryResult.rawResponse,
-        signVerified: status.signVerified === true,
       });
-      processResult = "query_paid_order_updated";
-    } else if (queryResult.configured && status.querySucceeded) {
-      processResult = `query_recorded_state:${status.orderState || "unknown"}`;
+      processResult =
+        parsed.paymentStatus === "paid"
+          ? "query_paid_order_updated"
+          : `query_terminal_order_updated:${parsed.paymentStatus}`;
+    } else if (queryResult.configured && parsed.querySucceeded) {
+      processResult = `query_recorded_state:${parsed.orderState || "unknown"}`;
     }
 
     try {
       await recordPaymentEvent({
-        orderNo,
+        orderNo: order.order_no,
         eventType: isAdmin ? "payment_query_admin" : "payment_query_return_url",
-        tradeStatus: status.orderState || order.payment_status,
-        rawPayload: { order_no: orderNo, provider, raw_response: queryResult.rawResponse },
+        tradeStatus: parsed.orderState || order.payment_status,
+        rawPayload: {
+          order_no: order.order_no,
+          provider,
+          query_by: providerOrderId ? "payOrderId" : "mchOrderNo",
+          provider_order_id: nextProviderOrderId || null,
+          raw_response: queryResult.rawResponse,
+        },
         processResult,
-        signVerified: status.signVerified,
+        signVerified: null,
       });
     } catch (eventError) {
       console.warn("[unified_order] payment query event log failed", {
-        orderNo,
+        localOrderNo: order.order_no,
         error: eventError instanceof Error ? eventError.message : "unknown error",
       });
     }
 
+    const paymentStatus = syncedOrder?.payment_status || order.payment_status;
+
     console.info("[unified_order] payment query sync", {
-      orderNo,
-      provider,
-      orderState: status.orderState || "unknown",
-      rawResponse: summarizeQueryResponse(queryResult.rawResponse),
+      localOrderNo: order.order_no,
+      providerOrderIdPresent: Boolean(providerOrderId),
+      queryBy: providerOrderId ? "payOrderId" : "mchOrderNo",
+      orderState: parsed.orderState || "unknown",
+      parsedPaymentStatus: parsed.paymentStatus,
       synced: Boolean(syncedOrder),
-      paymentStatus: syncedOrder?.payment_status || order.payment_status,
+      paymentStatus,
+      rawResponse: summarizeQueryResponse(queryResult.rawResponse),
       isAdmin,
     });
 
-    const responseBody = {
-      order_no: orderNo,
+    return NextResponse.json({
+      order_no: order.order_no,
       provider,
       configured: queryResult.configured,
       missing: isAdmin ? queryResult.missing : undefined,
       synced: Boolean(syncedOrder),
-      payment_status: syncedOrder?.payment_status || order.payment_status,
-      paymentStatus: syncedOrder?.payment_status || order.payment_status,
-      status: syncedOrder?.payment_status || order.payment_status,
-      order_state: status.orderState || null,
-      orderState: status.orderState || null,
-      provider_order_id: status.providerOrderId || null,
-      sign_verified: status.signVerified,
+      payment_status: paymentStatus,
+      paymentStatus,
+      status: paymentStatus,
+      order_state: parsed.orderState || null,
+      orderState: parsed.orderState || null,
+      parsedPaymentStatus: parsed.paymentStatus,
+      state_label: parsed.stateLabel,
+      provider_order_id: nextProviderOrderId || null,
       message: queryResult.configured
         ? syncedOrder
           ? "查单成功，已同步支付状态"
-          : "查单完成，未发现支付成功状态"
+          : "查单完成，未发现需要同步的终态"
         : "支付接口未配置，请联系管理员",
       ...(isAdmin ? { raw_response: queryResult.rawResponse } : {}),
-    };
-
-    return NextResponse.json(responseBody);
+    });
   } catch (error) {
     return NextResponse.json(
       {

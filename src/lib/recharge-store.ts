@@ -584,6 +584,68 @@ export async function markAlipayPaid(input: {
   return order;
 }
 
+export async function updatePaymentStatusFromQuery(input: {
+  orderNo: string;
+  paymentStatus: PaymentStatus;
+  providerOrderId?: string | null;
+  rawResponse?: unknown;
+}) {
+  if (input.paymentStatus === "paid") {
+    return markAlipayPaid({
+      orderNo: input.orderNo,
+      alipayTradeNo: input.providerOrderId || null,
+      providerOrderId: input.providerOrderId,
+      rawResponse: input.rawResponse,
+      signVerified: false,
+    });
+  }
+
+  if (!["failed", "closed", "refunded"].includes(input.paymentStatus)) {
+    return getOrder(input.orderNo);
+  }
+
+  if (shouldUseSupabase()) {
+    assertSupabaseConfigured();
+    const supabase = getSupabaseAdminClient();
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from("recharge_orders")
+      .update({
+        payment_status: input.paymentStatus,
+        provider_order_id: input.providerOrderId || undefined,
+        raw_response: input.rawResponse || undefined,
+        updated_at: now,
+      })
+      .eq("order_no", input.orderNo)
+      .neq("payment_status", "paid")
+      .select("*")
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data ? mapDbOrder(data as DbRechargeOrder) : getOrder(input.orderNo);
+  }
+
+  const data = await readStore();
+  const order = data.orders.find((item) => item.order_no === input.orderNo);
+
+  if (!order) {
+    return null;
+  }
+
+  if (order.payment_status !== "paid") {
+    order.payment_status = input.paymentStatus;
+    order.provider_order_id = input.providerOrderId || order.provider_order_id;
+    order.provider_raw_response = input.rawResponse || order.provider_raw_response;
+    order.updated_at = new Date().toISOString();
+    await writeStore(data);
+  }
+
+  return order;
+}
+
 export async function getOrder(orderNo: string) {
   if (shouldUseSupabase()) {
     assertSupabaseConfigured();
@@ -691,7 +753,8 @@ export async function listOrders(filters: OrderFilters = {}) {
     let query = supabase.from("recharge_orders").select("*");
 
     if (filters.orderNo) {
-      query = query.ilike("order_no", `%${filters.orderNo}%`);
+      const value = filters.orderNo.replace(/[%(),]/g, "");
+      query = query.or(`order_no.ilike.%${value}%,provider_order_id.ilike.%${value}%`);
     }
     if (filters.phone) {
       query = query.ilike("phone", `%${filters.phone}%`);
@@ -723,7 +786,11 @@ export async function listOrders(filters: OrderFilters = {}) {
 
   if (filters.orderNo) {
     const value = filters.orderNo.toLowerCase();
-    orders = orders.filter((item) => item.order_no.toLowerCase().includes(value));
+    orders = orders.filter(
+      (item) =>
+        item.order_no.toLowerCase().includes(value) ||
+        (item.provider_order_id || "").toLowerCase().includes(value),
+    );
   }
 
   if (filters.phone) {

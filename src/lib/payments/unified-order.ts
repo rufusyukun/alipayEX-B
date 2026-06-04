@@ -416,8 +416,10 @@ function logUnifiedOrderResponse(response: UnifiedOrderResponse) {
   console.info("[unified_order] create payment raw response", response);
 }
 
-export async function queryUnifiedOrder(orderNo: string) {
+export async function queryUnifiedOrder(input: string | { orderNo?: string; providerOrderId?: string | null }) {
   const { config, configured, missing } = getUnifiedOrderConfig();
+  const orderNo = typeof input === "string" ? input : input.orderNo || "";
+  const providerOrderId = typeof input === "string" ? "" : input.providerOrderId || "";
 
   if (!configured) {
     return {
@@ -431,7 +433,7 @@ export async function queryUnifiedOrder(orderNo: string) {
     // TODO: Confirm exact query request fields from InoPay query docs.
     mchNo: config.merchantId,
     appId: config.appId,
-    mchOrderNo: orderNo,
+    ...(providerOrderId ? { payOrderId: providerOrderId } : { mchOrderNo: orderNo }),
     reqTime: Date.now(),
     version: "1.0",
     signType: "MD5",
@@ -439,7 +441,11 @@ export async function queryUnifiedOrder(orderNo: string) {
 
   console.info("[unified_order] query payment payload", {
     queryUrl: config.queryUrl,
-    mchOrderNo: payload.mchOrderNo,
+    localOrderNo: orderNo || null,
+    providerOrderIdPresent: Boolean(providerOrderId),
+    queryBy: providerOrderId ? "payOrderId" : "mchOrderNo",
+    mchOrderNo: payload.mchOrderNo || null,
+    payOrderId: payload.payOrderId || null,
     payloadKeys: Object.keys(payload).sort(),
     hasMchNo: Boolean(payload.mchNo),
     hasAppId: Boolean(payload.appId),
