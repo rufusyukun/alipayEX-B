@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const isDevelopment = process.env.NODE_ENV === "development";
 
@@ -28,6 +28,15 @@ export default function PayPage() {
   const [alipaySchemeAlt, setAlipaySchemeAlt] = useState("");
   const [fallbackUrl, setFallbackUrl] = useState("");
   const [showFallback, setShowFallback] = useState(false);
+  const [syncState, setSyncState] = useState<"idle" | "polling" | "paid" | "timeout" | "error">(
+    "idle",
+  );
+  const [syncMessage, setSyncMessage] = useState("");
+  const pollingActiveRef = useRef(false);
+  const pollingTimerRef = useRef<number | null>(null);
+  const pollingStartedAtRef = useRef(0);
+  const queryInFlightRef = useRef(false);
+  const paidRef = useRef(false);
   const orderNo = params.orderNo;
   const amount = searchParams.get("amount");
   const phoneParam = searchParams.get("phone");
@@ -45,9 +54,94 @@ export default function PayPage() {
     return `/success?${successParams.toString()}`;
   }
 
+  const stopPolling = useCallback(() => {
+    pollingActiveRef.current = false;
+    if (pollingTimerRef.current !== null) {
+      window.clearTimeout(pollingTimerRef.current);
+      pollingTimerRef.current = null;
+    }
+  }, []);
+
+  const queryPaymentStatus = useCallback(async () => {
+    if (queryInFlightRef.current) {
+      return;
+    }
+
+    queryInFlightRef.current = true;
+
+    try {
+      const response = await fetch(`/api/alipay/query?orderNo=${encodeURIComponent(orderNo)}`);
+      const data = (await response.json()) as {
+        payment_status?: string;
+        synced?: boolean;
+        error?: string;
+      };
+
+      if (response.ok && (data.payment_status === "paid" || data.synced)) {
+        paidRef.current = true;
+        stopPolling();
+        setError("");
+        setNotice("");
+        setSyncState("paid");
+        setSyncMessage("支付成功");
+        setAlipayState("idle");
+        return;
+      }
+
+      if (!response.ok && data.error) {
+        setSyncState("error");
+        setSyncMessage(data.error);
+      }
+    } catch {
+      setSyncState("error");
+      setSyncMessage("支付状态查询失败，稍后会继续重试。");
+    } finally {
+      queryInFlightRef.current = false;
+    }
+  }, [orderNo, stopPolling]);
+
+  const startPolling = useCallback(() => {
+    if (pollingActiveRef.current || paidRef.current) {
+      return;
+    }
+
+    pollingActiveRef.current = true;
+    pollingStartedAtRef.current = Date.now();
+    setSyncState("polling");
+    setSyncMessage("正在同步支付结果...");
+
+    const tick = async () => {
+      if (!pollingActiveRef.current) {
+        return;
+      }
+
+      if (Date.now() - pollingStartedAtRef.current >= 2 * 60 * 1000) {
+        stopPolling();
+        setSyncState("timeout");
+        setSyncMessage("暂未查询到支付结果，请稍后刷新或联系客服。");
+        return;
+      }
+
+      await queryPaymentStatus();
+
+      if (pollingActiveRef.current) {
+        pollingTimerRef.current = window.setTimeout(tick, 3000);
+      }
+    };
+
+    void tick();
+  }, [queryPaymentStatus, stopPolling]);
+
+  useEffect(() => {
+    startPolling();
+    return stopPolling;
+  }, [startPolling, stopPolling]);
+
   function openPayment(schemeOrUrl: string, fallback?: string) {
     setAlipayState("jumping");
+    setNotice("正在打开支付宝...");
     setShowFallback(false);
+    startPolling();
     window.location.href = schemeOrUrl;
 
     if (fallback) {
@@ -102,6 +196,7 @@ export default function PayPage() {
         if (isExistingOrderMessage(message)) {
           setNotice("该订单已创建支付请求，请刷新页面或重新下单。");
           setAlipayState("idle");
+          startPolling();
           return;
         }
 
@@ -125,6 +220,7 @@ export default function PayPage() {
       if (data.payment_content) {
         setPaymentContent(data.payment_content);
         setAlipayState("idle");
+        startPolling();
         return;
       }
 
@@ -221,6 +317,20 @@ export default function PayPage() {
             </p>
           ) : null}
 
+          {syncMessage ? (
+            <p
+              className={`mt-3 rounded-2xl px-4 py-3 text-sm font-semibold ${
+                syncState === "paid"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : syncState === "timeout" || syncState === "error"
+                    ? "bg-amber-50 text-amber-700"
+                    : "bg-blue-50 text-blue-700"
+              }`}
+            >
+              {syncMessage}
+            </p>
+          ) : null}
+
           {showFallback && fallbackUrl ? (
             <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-slate-700">
               <p className="font-semibold text-slate-950">正在打开支付宝...</p>
@@ -270,11 +380,13 @@ export default function PayPage() {
         <div className="space-y-3 border-t border-slate-100 bg-white/95 p-4 backdrop-blur">
           <button
             className="flex min-h-[52px] w-full items-center justify-center rounded-2xl bg-blue-600 text-base font-bold text-white transition hover:bg-blue-700 disabled:bg-slate-300"
-            disabled={paying || loadingMock}
+            disabled={paying || loadingMock || syncState === "paid"}
             onClick={startAlipay}
             type="button"
           >
-            {alipayState === "creating"
+            {syncState === "paid"
+              ? "支付成功"
+              : alipayState === "creating"
               ? "正在创建支付链接..."
               : alipayState === "jumping"
                 ? "正在打开支付宝..."

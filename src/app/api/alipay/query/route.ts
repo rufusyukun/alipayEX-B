@@ -11,6 +11,14 @@ import { getOrder, markAlipayPaid, recordPaymentEvent } from "@/lib/recharge-sto
 type QueryResponse = {
   code?: string | number;
   msg?: string;
+  state?: string | number;
+  orderState?: string | number;
+  status?: string | number;
+  payStatus?: string | number;
+  tradeState?: string | number;
+  tradeStatus?: string | number;
+  successTime?: string;
+  paidAt?: string;
   data?: Record<string, unknown>;
   sign?: string;
 };
@@ -35,6 +43,7 @@ function isPaidState(value: string) {
 
   return (
     value === "2" ||
+    value === "3" ||
     normalized === "PAID" ||
     normalized === "SUCCESS" ||
     normalized === "PAY_SUCCESS" ||
@@ -64,14 +73,54 @@ function verifyQueryResponseSign(rawResponse: QueryResponse) {
 function extractQueryStatus(rawResponse: unknown) {
   const raw = (rawResponse || {}) as QueryResponse;
   const data = (raw.data || {}) as Record<string, unknown>;
-  const orderState = readString(data, ["orderState", "state", "status", "tradeStatus"]);
-  const providerOrderId = readString(data, ["payOrderId", "provider_order_id", "trade_no"]);
+  const root = raw as unknown as Record<string, unknown>;
+  const orderState =
+    readString(data, ["orderState", "state", "status", "payStatus", "tradeState", "tradeStatus"]) ||
+    readString(root, ["orderState", "state", "status", "payStatus", "tradeState", "tradeStatus"]);
+  const providerOrderId =
+    readString(data, ["payOrderId", "provider_order_id", "trade_no", "tradeNo"]) ||
+    readString(root, ["payOrderId", "provider_order_id", "trade_no", "tradeNo"]);
+  const paidAt =
+    readString(data, ["successTime", "paidAt", "paid_at", "paySuccessTime"]) ||
+    readString(root, ["successTime", "paidAt", "paid_at", "paySuccessTime"]);
 
   return {
     orderState,
     providerOrderId,
+    paidAt,
     querySucceeded: isSuccessCode(raw.code),
     signVerified: verifyQueryResponseSign(raw),
+  };
+}
+
+function summarizeQueryResponse(rawResponse: unknown) {
+  const raw = (rawResponse || {}) as QueryResponse;
+  const data = (raw.data || {}) as Record<string, unknown>;
+
+  return {
+    code: raw.code ?? null,
+    msg: raw.msg ?? null,
+    orderState:
+      readString(data, ["orderState", "state", "status", "payStatus", "tradeState", "tradeStatus"]) ||
+      readString(raw as unknown as Record<string, unknown>, [
+        "orderState",
+        "state",
+        "status",
+        "payStatus",
+        "tradeState",
+        "tradeStatus",
+      ]) ||
+      null,
+    providerOrderId:
+      readString(data, ["payOrderId", "provider_order_id", "trade_no", "tradeNo"]) ||
+      readString(raw as unknown as Record<string, unknown>, [
+        "payOrderId",
+        "provider_order_id",
+        "trade_no",
+        "tradeNo",
+      ]) ||
+      null,
+    hasData: Boolean(raw.data),
   };
 }
 
@@ -105,6 +154,8 @@ export async function GET(request: Request) {
         orderNo,
         alipayTradeNo: status.providerOrderId || order.alipay_trade_no,
         providerOrderId: status.providerOrderId || order.provider_order_id,
+        paidAt: status.paidAt || order.paid_at,
+        rawResponse: queryResult.rawResponse,
         signVerified: status.signVerified === true,
       });
       processResult = "query_paid_order_updated";
@@ -125,6 +176,7 @@ export async function GET(request: Request) {
       orderNo,
       provider,
       orderState: status.orderState || "unknown",
+      rawResponse: summarizeQueryResponse(queryResult.rawResponse),
       synced: Boolean(syncedOrder),
       paymentStatus: syncedOrder?.payment_status || order.payment_status,
       isAdmin,

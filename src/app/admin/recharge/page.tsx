@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type PaymentStatus = "pending" | "paid" | "failed" | "closed";
 type SupportStatus = "unprocessed" | "processing" | "completed" | "disputed";
@@ -142,6 +142,8 @@ export default function AdminRechargePage() {
   const [loading, setLoading] = useState(false);
   const [queryMessage, setQueryMessage] = useState("");
   const [syncingRecent, setSyncingRecent] = useState(false);
+  const ordersRef = useRef<Order[]>([]);
+  const syncingRecentRef = useRef(false);
 
   async function loadData() {
     setLoading(true);
@@ -165,6 +167,7 @@ export default function AdminRechargePage() {
 
     const ordersData = (await ordersResponse.json()) as { orders: Order[] };
     const statsData = (await statsResponse.json()) as Stats;
+    ordersRef.current = ordersData.orders;
     setOrders(ordersData.orders);
     setStats(statsData);
     setAuthenticated(true);
@@ -245,15 +248,25 @@ export default function AdminRechargePage() {
     await loadData();
   }
 
-  async function syncRecentPendingOrders() {
-    const cutoff = Date.now() - 30 * 60 * 1000;
-    const recentPendingOrders = orders.filter(
-      (order) =>
-        order.payment_status === "pending" && new Date(order.created_at).getTime() >= cutoff,
-    );
+  async function syncRecentPendingOrders(source: "manual" | "auto" = "manual") {
+    if (syncingRecentRef.current) {
+      return;
+    }
 
+    const cutoff = Date.now() - 30 * 60 * 1000;
+    const orderSource = source === "auto" ? ordersRef.current : orders;
+    const recentPendingOrders = orderSource
+      .filter(
+        (order) =>
+          order.payment_status === "pending" && new Date(order.created_at).getTime() >= cutoff,
+      )
+      .slice(0, 50);
+
+    syncingRecentRef.current = true;
     setSyncingRecent(true);
-    setQueryMessage(`开始同步最近待支付订单：${recentPendingOrders.length} 笔`);
+    if (source === "manual") {
+      setQueryMessage(`开始同步最近待支付订单：${recentPendingOrders.length} 笔`);
+    }
 
     try {
       let paidCount = 0;
@@ -269,12 +282,39 @@ export default function AdminRechargePage() {
         }
       }
 
-      setQueryMessage(`同步完成，更新已支付订单 ${paidCount} 笔`);
-      await loadData();
+      if (source === "manual" || paidCount > 0) {
+        setQueryMessage(`同步完成，更新已支付订单 ${paidCount} 笔`);
+      }
+      if (source === "manual" || paidCount > 0 || recentPendingOrders.length > 0) {
+        await loadData();
+      }
     } finally {
+      syncingRecentRef.current = false;
       setSyncingRecent(false);
     }
   }
+
+  useEffect(() => {
+    if (!authenticated) {
+      return;
+    }
+
+    let stopped = false;
+    const runAutoSync = () => {
+      if (!stopped) {
+        void syncRecentPendingOrders("auto");
+      }
+    };
+
+    runAutoSync();
+    const timer = window.setInterval(runAutoSync, 30 * 1000);
+
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authenticated]);
 
   const statCards = useMemo(
     () => [
@@ -372,7 +412,7 @@ export default function AdminRechargePage() {
           <button
             className="ml-2 mt-3 rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700 disabled:opacity-60"
             disabled={syncingRecent}
-            onClick={syncRecentPendingOrders}
+            onClick={() => syncRecentPendingOrders("manual")}
             type="button"
           >
             {syncingRecent ? "正在同步最近待支付订单" : "批量同步最近待支付订单"}
