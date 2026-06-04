@@ -250,13 +250,12 @@ function buildAlipaySchemes(input: { appId?: string; path?: string; qrUrl?: stri
     return null;
   }
 
-  const query = `qrUrl=${input.qrUrl}`;
   const pageWithQrUrl = `${input.path}?qrUrl=${encodeURIComponent(input.qrUrl)}`;
 
   return {
     primary: `alipays://platformapi/startapp?appId=${input.appId}&page=${encodeURIComponent(
       input.path,
-    )}&query=${encodeURIComponent(query)}`,
+    )}&query=qrCode=${encodeURIComponent(input.qrUrl)}`,
     alternate: `alipays://platformapi/startapp?appId=${input.appId}&page=${encodeURIComponent(
       pageWithQrUrl,
     )}`,

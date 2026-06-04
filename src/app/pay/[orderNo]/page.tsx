@@ -224,6 +224,9 @@ export default function PayPage() {
           {showFallback && fallbackUrl ? (
             <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-slate-700">
               <p className="font-semibold text-slate-950">正在打开支付宝...</p>
+              <p className="mt-1 leading-6">
+                备用链接仅用于调试，官方说明 qrUrl 不能直接作为普通链接支付。
+              </p>
               <div className="mt-3 grid gap-2">
                 {alipaySchemeAlt ? (
                   <button
@@ -240,7 +243,7 @@ export default function PayPage() {
                   rel="noreferrer"
                   target="_blank"
                 >
-                  备用方式二：打开 H5 支付链接
+                  备用方式二：打开 H5 调试链接
                 </a>
               </div>
             </div>
