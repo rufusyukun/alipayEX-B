@@ -109,6 +109,7 @@ declare global {
 
 const dataDir = path.join(process.cwd(), "data");
 const dataFile = path.join(dataDir, "recharge-orders.json");
+const PAYMENT_EXPIRY_SECONDS = 300;
 
 const emptyData: StoreData = {
   orders: [],
@@ -220,6 +221,23 @@ async function writeStore(data: StoreData) {
 
 function createId(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
+}
+
+export function getPaymentExpiry(order: Pick<RechargeOrder, "created_at" | "payment_status">) {
+  const createdMs = new Date(order.created_at).getTime();
+  const nowMs = Date.now();
+  const expiresMs = Number.isFinite(createdMs)
+    ? createdMs + PAYMENT_EXPIRY_SECONDS * 1000
+    : nowMs;
+  const remainingSeconds = Math.max(0, Math.ceil((expiresMs - nowMs) / 1000));
+  const isExpired = order.payment_status !== "paid" && remainingSeconds <= 0;
+
+  return {
+    createdAt: order.created_at,
+    expiresAt: new Date(expiresMs).toISOString(),
+    remainingSeconds,
+    isExpired,
+  };
 }
 
 function getClientIp(request: Request) {
@@ -970,6 +988,8 @@ export async function getStats() {
 }
 
 export function toPublicOrder(order: RechargeOrder) {
+  const expiry = getPaymentExpiry(order);
+
   return {
     order_no: order.order_no,
     amount_cents: order.amount_cents,
@@ -980,6 +1000,10 @@ export function toPublicOrder(order: RechargeOrder) {
     phone: order.phone,
     paid_at: order.paid_at,
     created_at: order.created_at,
+    createdAt: expiry.createdAt,
+    expiresAt: expiry.expiresAt,
+    remainingSeconds: expiry.remainingSeconds,
+    isExpired: expiry.isExpired,
     support_status: order.support_status,
   };
 }

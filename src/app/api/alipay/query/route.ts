@@ -6,9 +6,17 @@ import { parseUnifiedOrderState } from "@/lib/payments/unified-order-state";
 import {
   getOrder,
   getOrderByProviderOrderId,
+  getPaymentExpiry,
   recordPaymentEvent,
   updatePaymentStatusFromQuery,
 } from "@/lib/recharge-store";
+
+function isGatewayOrderNotFound(rawResponse: unknown) {
+  const raw = (rawResponse || {}) as { code?: string | number; msg?: string; retMsg?: string };
+  const message = String(raw.msg || raw.retMsg || "");
+
+  return String(raw.code) === "9999" && message.includes("订单不存在");
+}
 
 function summarizeQueryResponse(rawResponse: unknown) {
   const parsed = parseUnifiedOrderState(rawResponse);
@@ -58,11 +66,25 @@ export async function GET(request: Request) {
         ? await queryUnifiedOrder({ orderNo: order.order_no, providerOrderId })
         : { configured: false, missing: [], rawResponse: null };
     const parsed = parseUnifiedOrderState(queryResult.rawResponse);
+    const expiry = getPaymentExpiry(order);
+    const shouldCloseMissingGatewayOrder =
+      queryResult.configured &&
+      isGatewayOrderNotFound(queryResult.rawResponse) &&
+      expiry.isExpired &&
+      order.payment_status !== "paid";
     const nextProviderOrderId = parsed.providerOrderId || providerOrderId || order.provider_order_id;
     let processResult = queryResult.configured ? "query_sent" : "query_config_missing";
     let syncedOrder = null;
 
-    if (queryResult.configured && parsed.querySucceeded && parsed.isTerminal) {
+    if (shouldCloseMissingGatewayOrder) {
+      syncedOrder = await updatePaymentStatusFromQuery({
+        orderNo: order.order_no,
+        paymentStatus: "closed",
+        providerOrderId: nextProviderOrderId,
+        rawResponse: queryResult.rawResponse,
+      });
+      processResult = "query_missing_gateway_order_closed";
+    } else if (queryResult.configured && parsed.querySucceeded && parsed.isTerminal) {
       syncedOrder = await updatePaymentStatusFromQuery({
         orderNo: order.order_no,
         paymentStatus: parsed.paymentStatus,
@@ -107,6 +129,8 @@ export async function GET(request: Request) {
       queryBy: providerOrderId ? "payOrderId" : "mchOrderNo",
       orderState: parsed.orderState || "unknown",
       parsedPaymentStatus: parsed.paymentStatus,
+      expiry,
+      missingGatewayOrderClosed: shouldCloseMissingGatewayOrder,
       synced: Boolean(syncedOrder),
       paymentStatus,
       rawResponse: summarizeQueryResponse(queryResult.rawResponse),
@@ -124,8 +148,11 @@ export async function GET(request: Request) {
       status: paymentStatus,
       order_state: parsed.orderState || null,
       orderState: parsed.orderState || null,
-      parsedPaymentStatus: parsed.paymentStatus,
+      parsedPaymentStatus: shouldCloseMissingGatewayOrder ? "closed" : parsed.paymentStatus,
       state_label: parsed.stateLabel,
+      expiresAt: expiry.expiresAt,
+      remainingSeconds: expiry.remainingSeconds,
+      isExpired: expiry.isExpired,
       provider_order_id: nextProviderOrderId || null,
       message: queryResult.configured
         ? syncedOrder

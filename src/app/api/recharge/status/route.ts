@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getOrder, toPublicOrder } from "@/lib/recharge-store";
+import { getOrder, getPaymentExpiry, toPublicOrder } from "@/lib/recharge-store";
 
 export async function GET(request: Request) {
   try {
@@ -16,11 +16,21 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "订单不存在" }, { status: 404 });
     }
 
+    const expiry = getPaymentExpiry(order);
+    console.info("[payment expiry]", {
+      orderNo: order.order_no,
+      createdAt: expiry.createdAt,
+      expiresAt: expiry.expiresAt,
+      now: new Date().toISOString(),
+      remainingSeconds: expiry.remainingSeconds,
+      isExpired: expiry.isExpired,
+    });
+
     return NextResponse.json(toPublicOrder(order));
   } catch (error) {
     return NextResponse.json(
       {
-        error: "数据库未配置，请联系管理员",
+        error: "数据服务未配置或订单状态查询失败，请联系管理员",
         debug: error instanceof Error ? error.message : "unknown error",
       },
       { status: 500 },

@@ -5,28 +5,10 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const isDevelopment = process.env.NODE_ENV === "development";
-const ORDER_TIMEOUT_SECONDS = 300;
 
 function formatMoney(value: string | null) {
   const numberValue = Number(value || 0);
   return `¥${numberValue.toLocaleString("zh-CN")}`;
-}
-
-function getOrderCreatedTime(orderNo: string) {
-  const match = orderNo.match(/^[A-Z]?(\d{14})/);
-  if (!match) {
-    return null;
-  }
-
-  const value = match[1];
-  return new Date(
-    Number(value.slice(0, 4)),
-    Number(value.slice(4, 6)) - 1,
-    Number(value.slice(6, 8)),
-    Number(value.slice(8, 10)),
-    Number(value.slice(10, 12)),
-    Number(value.slice(12, 14)),
-  ).getTime();
 }
 
 function isExistingOrderMessage(message: string) {
@@ -51,6 +33,7 @@ export default function PayPage() {
   );
   const [syncMessage, setSyncMessage] = useState("");
   const [orderExpired, setOrderExpired] = useState(false);
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [initialStatusChecked, setInitialStatusChecked] = useState(false);
   const pollingActiveRef = useRef(false);
   const pollingTimerRef = useRef<number | null>(null);
@@ -163,28 +146,57 @@ export default function PayPage() {
   }, [startPolling, stopPolling]);
 
   useEffect(() => {
-    const createdAt = getOrderCreatedTime(orderNo);
-    if (!createdAt) {
-      return;
-    }
+    let stopped = false;
 
-    const checkExpired = () => {
-      if (!paidRef.current && Date.now() - createdAt >= ORDER_TIMEOUT_SECONDS * 1000) {
-        setOrderExpired(true);
-        setAlipayScheme("");
-        setAlipaySchemeAlt("");
-        setFallbackUrl("");
-        setShowFallback(false);
-        setAlipayState("idle");
-        stopPolling();
-        setSyncState("timeout");
-        setSyncMessage("订单已超时，请重新下单。");
+    const checkExpired = async () => {
+      try {
+        const response = await fetch(`/api/recharge/status?order_no=${encodeURIComponent(orderNo)}`);
+        const data = (await response.json()) as {
+          payment_status?: string;
+          isExpired?: boolean;
+          remainingSeconds?: number;
+        };
+
+        if (stopped || !response.ok) {
+          return;
+        }
+
+        if (data.payment_status === "paid") {
+          paidRef.current = true;
+          setOrderExpired(false);
+          setRemainingSeconds(data.remainingSeconds ?? null);
+          stopPolling();
+          setSyncState("paid");
+          setSyncMessage("支付成功");
+          return;
+        }
+
+        setRemainingSeconds(data.remainingSeconds ?? null);
+
+        if (data.isExpired) {
+          setOrderExpired(true);
+          setAlipayScheme("");
+          setAlipaySchemeAlt("");
+          setFallbackUrl("");
+          setShowFallback(false);
+          setAlipayState("idle");
+          stopPolling();
+          setSyncState("timeout");
+          setSyncMessage("订单已超时，请重新下单。");
+        } else {
+          setOrderExpired(false);
+        }
+      } catch {
+        // Keep the existing payment UI usable if the status check is temporarily unavailable.
       }
     };
 
-    checkExpired();
+    void checkExpired();
     const timer = window.setInterval(checkExpired, 1000);
-    return () => window.clearInterval(timer);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
   }, [orderNo, stopPolling]);
 
   function openPayment(schemeOrUrl: string, fallback?: string) {
@@ -383,6 +395,12 @@ export default function PayPage() {
               }`}
             >
               {syncMessage}
+            </p>
+          ) : null}
+
+          {!orderExpired && syncState !== "paid" && remainingSeconds !== null ? (
+            <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
+              支付剩余时间：{remainingSeconds} 秒
             </p>
           ) : null}
 
