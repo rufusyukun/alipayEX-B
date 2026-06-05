@@ -3,6 +3,7 @@ import { RechargeOrder } from "@/lib/recharge-store";
 import { CreatePaymentResult, PaymentProvider } from "@/lib/payments/types";
 
 type UnifiedOrderConfig = {
+  siteUrl: string;
   gatewayUrl: string;
   createUrl: string;
   queryUrl: string;
@@ -70,9 +71,20 @@ function getTimeoutSeconds() {
   return Number.isFinite(timeout) ? Math.min(timeout, 300) : 300;
 }
 
+function getSiteUrl() {
+  const siteUrl =
+    process.env.APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "https://www.chongzhicenter.com";
+
+  return siteUrl.replace(/\/$/, "");
+}
+
 export function getUnifiedOrderConfig() {
   const gatewayUrl = process.env.UNIFIED_ORDER_GATEWAY_URL || "https://gateway.sxdwc.fun";
+  const siteUrl = getSiteUrl();
   const config: UnifiedOrderConfig = {
+    siteUrl,
     gatewayUrl,
     createUrl:
       process.env.UNIFIED_ORDER_CREATE_URL || `${gatewayUrl.replace(/\/$/, "")}/api/pay/unifiedOrder`,
@@ -82,8 +94,8 @@ export function getUnifiedOrderConfig() {
     merchantId: process.env.UNIFIED_ORDER_MERCHANT_ID || "",
     appId: process.env.UNIFIED_ORDER_APP_ID || "",
     apiKey: process.env.UNIFIED_ORDER_API_KEY || "",
-    notifyUrl: process.env.UNIFIED_ORDER_NOTIFY_URL || "",
-    returnUrl: process.env.UNIFIED_ORDER_RETURN_URL || "",
+    notifyUrl: process.env.UNIFIED_ORDER_NOTIFY_URL || `${siteUrl}/api/alipay/notify`,
+    returnUrl: process.env.UNIFIED_ORDER_RETURN_URL || `${siteUrl}/success`,
     wayCode: process.env.UNIFIED_ORDER_PAY_WAY_CODE || "ALI_WAP",
     channelExtra: process.env.UNIFIED_ORDER_CHANNEL_EXTRA || '{"payDataType":"payUrl"}',
     timeoutSeconds: getTimeoutSeconds(),
@@ -194,6 +206,12 @@ function logCreatePayload(payload: Record<string, unknown>, config: UnifiedOrder
   const signParamKeys = Object.keys(payload)
     .filter((key) => key !== "sign" && key !== "signValue" && payload[key] !== "")
     .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+
+  console.info("[unified_order] create request urls", {
+    notifyUrl: payload.notifyUrl,
+    returnUrl: payload.returnUrl,
+    siteUrl: config.siteUrl,
+  });
 
   console.info("[unified_order] create payment payload", {
     createUrl: config.createUrl,
