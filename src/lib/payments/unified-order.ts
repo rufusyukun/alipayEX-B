@@ -60,7 +60,12 @@ type UnifiedOrderResponse = {
 type PaymentTarget = {
   content: string;
   alternateContent?: string;
+  androidIntentUrl?: string;
   fallbackUrl?: string;
+  appId?: string;
+  path?: string;
+  qrUrl?: string;
+  jeepayToken?: string;
   type: "url" | "qr" | "content";
 };
 
@@ -269,6 +274,13 @@ function buildAlipaySchemes(input: { appId?: string; path?: string; qrUrl?: stri
   }
 
   const pageWithQrUrl = `${input.path}?qrUrl=${encodeURIComponent(input.qrUrl)}`;
+  let jeepayToken = "";
+
+  try {
+    jeepayToken = new URL(input.qrUrl).searchParams.get("jeepayToken") || "";
+  } catch {
+    jeepayToken = "";
+  }
 
   return {
     primary: `alipays://platformapi/startapp?appId=${input.appId}&page=${encodeURIComponent(
@@ -277,6 +289,12 @@ function buildAlipaySchemes(input: { appId?: string; path?: string; qrUrl?: stri
     alternate: `alipays://platformapi/startapp?appId=${input.appId}&page=${encodeURIComponent(
       pageWithQrUrl,
     )}`,
+    androidIntentUrl: `intent://platformapi/startapp?appId=${input.appId}&page=${encodeURIComponent(
+      input.path,
+    )}&query=qrCode=${encodeURIComponent(
+      input.qrUrl,
+    )}#Intent;scheme=alipays;package=com.eg.android.AlipayGphone;end`,
+    jeepayToken,
   };
 }
 
@@ -333,7 +351,12 @@ function extractMiniAppTarget(value: UnifiedOrderData | null): PaymentTarget | n
     return {
       content: schemes.primary,
       alternateContent: schemes.alternate,
+      androidIntentUrl: schemes.androidIntentUrl,
       fallbackUrl: value.qrUrl,
+      appId: value.appId,
+      path: value.path,
+      qrUrl: value.qrUrl,
+      jeepayToken: schemes.jeepayToken,
       type: "url" as const,
     };
   }
@@ -534,7 +557,12 @@ export const unifiedOrderProvider: PaymentProvider = {
       alipaySchemeAlt: paymentTarget.alternateContent?.startsWith("alipays://")
         ? paymentTarget.alternateContent
         : undefined,
+      androidIntentUrl: paymentTarget.androidIntentUrl,
       fallbackUrl: paymentTarget.fallbackUrl,
+      appId: paymentTarget.appId,
+      path: paymentTarget.path,
+      qrUrl: paymentTarget.qrUrl,
+      jeepayToken: paymentTarget.jeepayToken,
       paymentContent: paymentTarget.content,
       paymentContentType: paymentTarget.type,
       providerOrderId: data.payOrderId,

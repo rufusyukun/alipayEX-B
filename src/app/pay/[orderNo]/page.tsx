@@ -26,6 +26,7 @@ export default function PayPage() {
   const [paymentContent, setPaymentContent] = useState("");
   const [alipayScheme, setAlipayScheme] = useState("");
   const [alipaySchemeAlt, setAlipaySchemeAlt] = useState("");
+  const [androidIntentUrl, setAndroidIntentUrl] = useState("");
   const [fallbackUrl, setFallbackUrl] = useState("");
   const [showFallback, setShowFallback] = useState(false);
   const [syncState, setSyncState] = useState<"idle" | "polling" | "paid" | "timeout" | "error">(
@@ -46,6 +47,14 @@ export default function PayPage() {
   const phone = phoneParam || "未填写";
   const paying = alipayState !== "idle";
   const checkingOrderStatus = !initialStatusChecked && syncState !== "paid";
+
+  function isAndroidDevice() {
+    return typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+  }
+
+  function getPreferredLaunchUrl(nextAlipayScheme = alipayScheme, nextAndroidIntentUrl = androidIntentUrl) {
+    return isAndroidDevice() && nextAndroidIntentUrl ? nextAndroidIntentUrl : nextAlipayScheme;
+  }
 
   function buildSuccessUrl() {
     const successParams = new URLSearchParams({ orderNo });
@@ -177,6 +186,7 @@ export default function PayPage() {
           setOrderExpired(true);
           setAlipayScheme("");
           setAlipaySchemeAlt("");
+          setAndroidIntentUrl("");
           setFallbackUrl("");
           setShowFallback(false);
           setAlipayState("idle");
@@ -199,19 +209,34 @@ export default function PayPage() {
     };
   }, [orderNo, stopPolling]);
 
-  function openPayment(schemeOrUrl: string, fallback?: string) {
+  function openPayment(schemeOrUrl: string, fallback?: string, showActions = true) {
     setAlipayState("jumping");
     setNotice("正在打开支付宝...");
-    setShowFallback(false);
+    setShowFallback(showActions);
     startPolling();
     window.location.href = schemeOrUrl;
 
-    if (fallback) {
+    if (fallback && !showActions) {
       window.setTimeout(() => {
         setShowFallback(true);
         setAlipayState("idle");
       }, 1500);
+      return;
     }
+
+    window.setTimeout(() => {
+      setAlipayState("idle");
+    }, 1500);
+  }
+
+  function markManualLaunch() {
+    setAlipayState("jumping");
+    setNotice("正在同步支付结果...");
+    setShowFallback(true);
+    startPolling();
+    window.setTimeout(() => {
+      setAlipayState("idle");
+    }, 1500);
   }
 
   async function startAlipay() {
@@ -225,7 +250,7 @@ export default function PayPage() {
     }
 
     if (alipayScheme) {
-      openPayment(alipayScheme, fallbackUrl);
+      openPayment(getPreferredLaunchUrl(), fallbackUrl);
       return;
     }
 
@@ -252,7 +277,12 @@ export default function PayPage() {
         payment_url?: string | null;
         alipay_scheme?: string | null;
         alipay_scheme_alt?: string | null;
+        android_intent_url?: string | null;
         fallback_url?: string | null;
+        app_id?: string | null;
+        path?: string | null;
+        qr_url?: string | null;
+        jeepay_token?: string | null;
         payment_content?: string | null;
         payment_content_type?: "url" | "qr" | "content" | null;
         error?: string;
@@ -273,8 +303,14 @@ export default function PayPage() {
       if (data.alipay_scheme) {
         setAlipayScheme(data.alipay_scheme);
         setAlipaySchemeAlt(data.alipay_scheme_alt || "");
+        setAndroidIntentUrl(data.android_intent_url || "");
         setFallbackUrl(data.fallback_url || "");
-        openPayment(data.alipay_scheme, data.fallback_url || "");
+        setNotice("支付订单已创建，请点击打开支付宝");
+        setShowFallback(true);
+        openPayment(
+          getPreferredLaunchUrl(data.alipay_scheme, data.android_intent_url || ""),
+          data.fallback_url || "",
+        );
         return;
       }
 
@@ -404,13 +440,31 @@ export default function PayPage() {
             </p>
           ) : null}
 
-          {showFallback && fallbackUrl ? (
+          {showFallback && (alipayScheme || androidIntentUrl || fallbackUrl) ? (
             <div className="rounded-2xl border border-[#2A2A2A] bg-[#1F1F1F] px-4 py-3 text-sm text-[#A3A3A3]">
-              <p className="font-semibold text-white">正在打开支付宝...</p>
+              <p className="font-semibold text-white">支付订单已创建，请点击打开支付宝</p>
               <p className="mt-1 leading-6">
-                备用链接仅用于调试，官方说明 qrUrl 不能直接作为普通链接支付。
+                如果没有自动打开支付宝，请点击下方按钮继续支付。小米或部分 Android 浏览器可能会拦截自动唤起。
               </p>
               <div className="mt-3 grid gap-2">
+                {alipayScheme ? (
+                  <a
+                    className="rounded-xl bg-[#FF9900] px-4 py-3 text-center font-black text-black"
+                    href={alipayScheme}
+                    onClick={markManualLaunch}
+                  >
+                    打开支付宝支付
+                  </a>
+                ) : null}
+                {androidIntentUrl ? (
+                  <a
+                    className="rounded-xl border border-[#FF9900]/40 bg-[#3A2600] px-4 py-3 text-center font-bold text-[#FF9900]"
+                    href={androidIntentUrl}
+                    onClick={markManualLaunch}
+                  >
+                    安卓备用打开方式
+                  </a>
+                ) : null}
                 {alipaySchemeAlt ? (
                   <button
                     className="rounded-xl bg-[#FF9900] px-4 py-3 font-black text-black"
@@ -429,6 +483,9 @@ export default function PayPage() {
                   备用方式二：打开 H5 调试链接
                 </a>
               </div>
+              <p className="mt-3 leading-6">
+                如果仍无法打开，请换用系统浏览器或 Chrome，并确认手机已安装支付宝且允许浏览器打开外部应用。
+              </p>
             </div>
           ) : null}
 

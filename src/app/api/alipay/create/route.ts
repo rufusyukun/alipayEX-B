@@ -39,6 +39,7 @@ function createDebugPayload(input: {
   paymentUrl?: string | null;
   alipayScheme?: string | null;
   alipaySchemeAlt?: string | null;
+  androidIntentUrl?: string | null;
   fallbackUrl?: string | null;
   paymentContent?: string | null;
   rawResponse?: unknown;
@@ -48,6 +49,7 @@ function createDebugPayload(input: {
     input.paymentUrl ||
     input.alipayScheme ||
     input.alipaySchemeAlt ||
+    input.androidIntentUrl ||
     input.fallbackUrl ||
     input.paymentContent ||
     raw.payUrl ||
@@ -113,6 +115,7 @@ export async function POST(request: Request) {
           paymentUrl: result.paymentUrl,
           alipayScheme: result.alipayScheme,
           alipaySchemeAlt: result.alipaySchemeAlt,
+          androidIntentUrl: result.androidIntentUrl,
           fallbackUrl: result.fallbackUrl,
           paymentContent: result.paymentContent,
           rawResponse: result.rawResponse,
@@ -165,7 +168,12 @@ export async function POST(request: Request) {
       payment_url: result.paymentUrl || null,
       alipay_scheme: result.alipayScheme || null,
       alipay_scheme_alt: result.alipaySchemeAlt || null,
+      android_intent_url: result.androidIntentUrl || null,
       fallback_url: result.fallbackUrl || null,
+      app_id: result.appId || null,
+      path: result.path || null,
+      qr_url: result.qrUrl || null,
+      jeepay_token: result.jeepayToken || null,
       payment_content: result.paymentContent || result.paymentUrl || null,
       payment_content_type: result.paymentContentType || (result.paymentUrl ? "url" : null),
       order_no: orderNo,

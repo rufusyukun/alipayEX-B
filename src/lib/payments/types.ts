@@ -8,7 +8,12 @@ export type CreatePaymentResult = {
   paymentUrl?: string;
   alipayScheme?: string;
   alipaySchemeAlt?: string;
+  androidIntentUrl?: string;
   fallbackUrl?: string;
+  appId?: string;
+  path?: string;
+  qrUrl?: string;
+  jeepayToken?: string;
   paymentContent?: string;
   paymentContentType?: "url" | "qr" | "content";
   providerOrderId?: string | null;
