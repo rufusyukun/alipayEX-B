@@ -42,6 +42,7 @@ function createDebugPayload(input: {
   androidIntentUrl?: string | null;
   fallbackUrl?: string | null;
   paymentContent?: string | null;
+  detectedPaymentMode?: string | null;
   rawResponse?: unknown;
 }) {
   const raw = (input.rawResponse || {}) as ProviderRawResponse;
@@ -77,6 +78,7 @@ function createDebugPayload(input: {
 
   return {
     provider: input.provider,
+    detected_payment_mode: input.detectedPaymentMode || null,
     payDataType: raw.payDataType || raw.data?.payDataType || null,
     payment_url_host: host,
     payment_value_prefix: paymentValue.slice(0, 80),
@@ -118,6 +120,7 @@ export async function POST(request: Request) {
           androidIntentUrl: result.androidIntentUrl,
           fallbackUrl: result.fallbackUrl,
           paymentContent: result.paymentContent,
+          detectedPaymentMode: result.detectedPaymentMode,
           rawResponse: result.rawResponse,
         })
       : undefined;
@@ -176,6 +179,7 @@ export async function POST(request: Request) {
       jeepay_token: result.jeepayToken || null,
       payment_content: result.paymentContent || result.paymentUrl || null,
       payment_content_type: result.paymentContentType || (result.paymentUrl ? "url" : null),
+      detected_payment_mode: result.detectedPaymentMode || null,
       order_no: orderNo,
       provider_order_id: result.providerOrderId || null,
       raw_response: result.rawResponse,

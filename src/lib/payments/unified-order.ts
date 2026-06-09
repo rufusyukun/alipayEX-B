@@ -67,6 +67,7 @@ type PaymentTarget = {
   qrUrl?: string;
   jeepayToken?: string;
   type: "url" | "qr" | "content";
+  detectedPaymentMode: "ali_wap_url" | "qr_cashier_miniapp" | "content";
 };
 
 export type UnifiedOrderQueryResponse = Record<string, unknown>;
@@ -268,6 +269,10 @@ function isUrl(value: string) {
   return /^https?:\/\//i.test(value);
 }
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 function buildAlipaySchemes(input: { appId?: string; path?: string; qrUrl?: string }) {
   if (!input.appId || !input.path || !input.qrUrl) {
     return null;
@@ -336,6 +341,25 @@ function paymentFieldsFromObject(value: UnifiedOrderData) {
   ].filter((field): field is string => typeof field === "string" && field.trim().length > 0);
 }
 
+function directUrlFieldsFromObject(value: UnifiedOrderData) {
+  return [
+    value.payData,
+    value.payUrl,
+    value.cashierUrl,
+    value.checkoutUrl,
+    value.codeUrl,
+    value.qrCode,
+    value.payInfo,
+    value.data?.payData,
+    value.data?.payUrl,
+    value.data?.cashierUrl,
+    value.data?.checkoutUrl,
+    value.data?.codeUrl,
+    value.data?.qrCode,
+    value.data?.payInfo,
+  ].filter(isNonEmptyString);
+}
+
 function extractMiniAppTarget(value: UnifiedOrderData | null): PaymentTarget | null {
   if (!value) {
     return null;
@@ -358,6 +382,7 @@ function extractMiniAppTarget(value: UnifiedOrderData | null): PaymentTarget | n
       qrUrl: value.qrUrl,
       jeepayToken: schemes.jeepayToken,
       type: "url" as const,
+      detectedPaymentMode: "qr_cashier_miniapp" as const,
     };
   }
 
@@ -366,9 +391,31 @@ function extractMiniAppTarget(value: UnifiedOrderData | null): PaymentTarget | n
 
 function extractPaymentTarget(response: UnifiedOrderResponse) {
   const data = responseData(response);
+  const directUrlCandidates = [
+    response.payData,
+    response.payUrl,
+    response.cashierUrl,
+    response.checkoutUrl,
+    response.codeUrl,
+    response.qrCode,
+    response.payInfo,
+    typeof response.data === "string" ? response.data : "",
+    ...directUrlFieldsFromObject(data),
+  ].filter(isNonEmptyString);
+  const directUrl = directUrlCandidates.find((value) => isUrl(value.trim()));
+
+  if (directUrl) {
+    return {
+      content: directUrl.trim(),
+      fallbackUrl: directUrl.trim(),
+      type: "url" as const,
+      detectedPaymentMode: "ali_wap_url" as const,
+    };
+  }
+
   const miniAppTarget =
     extractMiniAppTarget(typeof data.payData === "string" ? parseJsonObject(data.payData) : null) ||
-    extractMiniAppTarget(data) ||
+    extractMiniAppTarget(typeof response.payData === "string" ? parseJsonObject(response.payData) : null) ||
     extractMiniAppTarget(typeof response.data === "string" ? parseJsonObject(response.data) : null);
 
   if (miniAppTarget) {
@@ -403,6 +450,7 @@ function extractPaymentTarget(response: UnifiedOrderResponse) {
       content: url.trim(),
       fallbackUrl: url.trim(),
       type: "url" as const,
+      detectedPaymentMode: "ali_wap_url" as const,
     };
   }
 
@@ -418,6 +466,7 @@ function extractPaymentTarget(response: UnifiedOrderResponse) {
         content: parsedUrl.trim(),
         fallbackUrl: parsedUrl.trim(),
         type: "url" as const,
+        detectedPaymentMode: "ali_wap_url" as const,
       };
     }
   }
@@ -432,6 +481,7 @@ function extractPaymentTarget(response: UnifiedOrderResponse) {
   return {
     content,
     type: (payDataType.includes("qr") ? "qr" : "content") as "qr" | "content",
+    detectedPaymentMode: "content" as const,
   };
 }
 
@@ -455,6 +505,27 @@ async function postUnifiedOrder(
 
 function logUnifiedOrderResponse(response: UnifiedOrderResponse) {
   console.info("[unified_order] create payment raw response", response);
+}
+
+function getResponsePayDataType(response: UnifiedOrderResponse) {
+  const data = responseData(response);
+  return data.payDataType || "";
+}
+
+function logDetectedPaymentMode(input: {
+  config: UnifiedOrderConfig;
+  response: UnifiedOrderResponse;
+  paymentTarget: PaymentTarget;
+}) {
+  console.info("[unified_order] detected payment result", {
+    wayCode: input.config.wayCode,
+    hasChannelExtra: Boolean(
+      input.config.channelExtra && input.config.channelExtra.trim() !== "{}",
+    ),
+    payDataType: getResponsePayDataType(input.response) || null,
+    detectedPaymentMode: input.paymentTarget.detectedPaymentMode,
+    paymentUrlExists: isUrl(input.paymentTarget.content),
+  });
 }
 
 export async function queryUnifiedOrder(input: string | { orderNo?: string; providerOrderId?: string | null }) {
@@ -546,13 +617,14 @@ export const unifiedOrderProvider: PaymentProvider = {
         error: "支付订单创建成功，但未返回支付跳转地址",
       };
     }
+    logDetectedPaymentMode({ config, response, paymentTarget });
 
     const data = responseData(response);
 
     return {
       configured: true,
       provider: "unified_order",
-      paymentUrl: paymentTarget.type === "url" ? paymentTarget.content : undefined,
+      paymentUrl: isUrl(paymentTarget.content) ? paymentTarget.content : undefined,
       alipayScheme: paymentTarget.content.startsWith("alipays://") ? paymentTarget.content : undefined,
       alipaySchemeAlt: paymentTarget.alternateContent?.startsWith("alipays://")
         ? paymentTarget.alternateContent
@@ -565,6 +637,7 @@ export const unifiedOrderProvider: PaymentProvider = {
       jeepayToken: paymentTarget.jeepayToken,
       paymentContent: paymentTarget.content,
       paymentContentType: paymentTarget.type,
+      detectedPaymentMode: paymentTarget.detectedPaymentMode,
       providerOrderId: data.payOrderId,
       rawResponse: {
         code: response.code,

@@ -16,6 +16,7 @@ export type CreatePaymentResult = {
   jeepayToken?: string;
   paymentContent?: string;
   paymentContentType?: "url" | "qr" | "content";
+  detectedPaymentMode?: "ali_wap_url" | "qr_cashier_miniapp" | "content";
   providerOrderId?: string | null;
   rawResponse?: unknown;
   missing?: string[];
