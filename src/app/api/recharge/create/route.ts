@@ -7,6 +7,8 @@ type CreateRechargeBody = {
   phone?: unknown;
 };
 
+const allowedRechargeAmounts = new Set([1, 2, 10, 298, 596, 1192, 1788, 2980]);
+
 function parseAmount(value: unknown) {
   const amount = typeof value === "number" ? value : Number(String(value ?? "").trim());
 
@@ -40,6 +42,10 @@ export async function POST(request: Request) {
 
     if (amount < 1) {
       return errorResponse("创建订单失败，请稍后重试", "amount must be at least 1");
+    }
+
+    if (!allowedRechargeAmounts.has(amount)) {
+      return errorResponse("创建订单失败，请稍后重试", "amount is not allowed");
     }
 
     if (phone && !/^1\d{10}$/.test(phone)) {
