@@ -7,7 +7,7 @@ type CreateRechargeBody = {
   phone?: unknown;
 };
 
-const allowedRechargeAmounts = new Set([1, 2, 10, 298, 596, 1192, 1788, 2980]);
+const allowedRechargeAmounts = new Set([1, 2, 298, 596, 1192, 1788]);
 
 function parseAmount(value: unknown) {
   const amount = typeof value === "number" ? value : Number(String(value ?? "").trim());

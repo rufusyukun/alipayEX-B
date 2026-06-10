@@ -6,12 +6,10 @@ import { useRouter } from "next/navigation";
 const packages = [
   { id: 1, amount: 1, tag: "测试" },
   { id: 2, amount: 2, tag: "测试" },
-  { id: 3, amount: 10, tag: "测试" },
   { id: 4, amount: 298, tag: "小额" },
   { id: 5, amount: 596, tag: "推荐" },
   { id: 6, amount: 1192, tag: "热门" },
   { id: 7, amount: 1788, tag: "高配" },
-  { id: 8, amount: 2980, tag: "大额" },
 ];
 
 const examples = ["照片转 3D 模型", "手办/摆件打印", "建筑沙盘零件", "高精度树脂打印"];
