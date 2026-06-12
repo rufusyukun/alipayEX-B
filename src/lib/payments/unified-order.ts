@@ -209,35 +209,20 @@ function buildCreatePayload(order: RechargeOrder, config: UnifiedOrderConfig) {
 }
 
 function logCreatePayload(payload: Record<string, unknown>, config: UnifiedOrderConfig) {
-  const signParamKeys = Object.keys(payload)
-    .filter((key) => key !== "sign" && key !== "signValue" && payload[key] !== "")
-    .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-
-  console.info("[unified_order] create request urls", {
-    notifyUrl: payload.notifyUrl,
-    returnUrl: payload.returnUrl,
-    siteUrl: config.siteUrl,
-  });
-
-  console.info("[unified_order] create payment payload", {
+  console.info("[unified_order] create request summary", {
     createUrl: config.createUrl,
-    provider: "unified_order",
-    notifyUrl: payload.notifyUrl,
-    returnUrl: payload.returnUrl,
+    gatewayUrl: config.gatewayUrl,
+    mchNo: payload.mchNo,
+    appId: payload.appId,
     wayCode: payload.wayCode,
     channelExtra: payload.channelExtra,
     amount: payload.amount,
     currency: payload.currency,
-    mchOrderNo: payload.mchOrderNo,
-    expiredTime: payload.expiredTime,
-    payloadKeys: Object.keys(payload).sort(),
-    signParamKeys,
-    notifyUrlInPayload: Object.prototype.hasOwnProperty.call(payload, "notifyUrl"),
-    notifyUrlInSignedParams: signParamKeys.includes("notifyUrl"),
-    hasMchNo: Boolean(payload.mchNo),
-    hasAppId: Boolean(payload.appId),
+    notifyUrl: payload.notifyUrl,
+    returnUrl: payload.returnUrl,
     hasApiKey: Boolean(config.apiKey),
     hasSign: Boolean(payload.sign),
+    signType: payload.signType,
   });
 
   if (process.env.NODE_ENV === "production") {
@@ -503,8 +488,50 @@ async function postUnifiedOrder(
   return (await response.json()) as UnifiedOrderResponse;
 }
 
-function logUnifiedOrderResponse(response: UnifiedOrderResponse) {
-  console.info("[unified_order] create payment raw response", response);
+function logUnifiedOrderResponse(
+  response: UnifiedOrderResponse,
+  paymentTarget: PaymentTarget | null,
+) {
+  console.info("[unified_order] create raw response", {
+    code: response.code ?? response.retCode ?? null,
+    msg: response.msg || response.retMsg || null,
+    hasData: Boolean(response.data),
+    payDataType: getResponsePayDataType(response) || null,
+    detectedPaymentMode: paymentTarget?.detectedPaymentMode || null,
+    hasPaymentUrl: Boolean(paymentTarget && isUrl(paymentTarget.content)),
+  });
+}
+
+function logUnifiedOrderDiagnostic(response: UnifiedOrderResponse) {
+  const message = String(response.msg || response.retMsg || "");
+  const diagnostics = [
+    {
+      pattern: "商户应用不支持该支付方式",
+      conclusion: "诊断结论：商户应用不支持当前 wayCode，请检查商户应用是否开通 ALI_WAP。",
+    },
+    {
+      pattern: "商户无此接口[API_PAY_ORDER]权限",
+      conclusion: "诊断结论：商户缺少 API_PAY_ORDER 下单接口权限，请联系网关或服务商开通。",
+    },
+    {
+      pattern: "服务商参数未配置",
+      conclusion: "诊断结论：服务商参数未配置，请检查网关侧服务商/通道配置。",
+    },
+    {
+      pattern: "签名错误",
+      conclusion: "诊断结论：签名错误，请核对 UNIFIED_ORDER_API_KEY、签名字段和网关签名规则。",
+    },
+  ];
+
+  const matched = diagnostics.find((diagnostic) => message.includes(diagnostic.pattern));
+  if (!matched) {
+    return;
+  }
+
+  console.warn("[unified_order] create diagnostic", {
+    matchedMessage: matched.pattern,
+    conclusion: matched.conclusion,
+  });
 }
 
 function getResponsePayDataType(response: UnifiedOrderResponse) {
@@ -597,7 +624,9 @@ export const unifiedOrderProvider: PaymentProvider = {
     }
 
     const response = await postUnifiedOrder(order, config);
-    logUnifiedOrderResponse(response);
+    const paymentTarget = extractPaymentTarget(response);
+    logUnifiedOrderResponse(response, paymentTarget);
+    logUnifiedOrderDiagnostic(response);
 
     if (!isSuccessfulResponse(response)) {
       return {
@@ -608,7 +637,6 @@ export const unifiedOrderProvider: PaymentProvider = {
       };
     }
 
-    const paymentTarget = extractPaymentTarget(response);
     if (!paymentTarget) {
       return {
         configured: true,
